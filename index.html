@@ -600,22 +600,6 @@
                                 </div>
                             )}
 
-                            <div className="mt-8 p-5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-2xl border border-blue-400/20">
-                                <label className="flex items-center gap-4 cursor-pointer">
-                                    <input 
-                                        type="checkbox" 
-                                        checked={useTextMatching} 
-                                        onChange={(e) => setUseTextMatching(e.target.checked)} 
-                                        className="w-6 h-6 rounded"
-                                        aria-label="텍스트-이미지 매칭 모드"
-                                    />
-                                    <div>
-                                        <span className="text-xl font-bold block">📝 텍스트-이미지 매칭 모드</span>
-                                        <span className="text-sm opacity-70">그림 카드와 텍스트 카드를 짝지어 매칭합니다</span>
-                                    </div>
-                                </label>
-                            </div>
-
                             <div className="mt-8 flex gap-4">
                                 <button 
                                     onClick={() => setScreen('home')} 
@@ -683,10 +667,10 @@
                                         <button 
                                             key={m.id} 
                                             onClick={() => setPlayerMode(m.id)} 
-                                            className={`p-3 rounded-xl font-bold text-sm transition-all ${playerMode === m.id ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white shadow-lg scale-105' : `${t.statBox} hover:bg-white/10`}`}
+                                            className={`p-3 rounded-xl font-bold transition-all ${playerMode === m.id ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white shadow-lg scale-105' : `${t.statBox} hover:bg-white/10`}`}
                                             aria-label={m.id === 'single' ? '한 명 플레이' : '대결 모드'}
                                         >
-                                            <div className="text-sm">{m.n}</div>
+                                            <div className="text-base">{m.n}</div>
                                             <div className="text-xs opacity-70">{m.d}</div>
                                         </button>
                                     ))}
@@ -731,7 +715,7 @@
                                 </div>
                             </div>
 
-                            <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-400/20">
+                            <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-400/20 mb-8">
                                 <h3 className="text-sm font-bold mb-2">⚙️ 환경 설정</h3>
                                 <div className="flex items-center gap-6">
                                     <label className="flex items-center gap-2 cursor-pointer">
@@ -992,18 +976,31 @@
 
                                         <div className="flex gap-4 mb-4">
                                             <button 
-                                                onClick={startGame} 
+                                                onClick={() => {
+                                                    setGameFinished(false);
+                                                    setGameResult(null);
+                                                    startGame();
+                                                }} 
                                                 className="flex-1 py-4 bg-slate-900 hover:bg-slate-800 text-white text-xl font-bold rounded-2xl shadow-md transition-transform hover:scale-105"
                                                 aria-label="다시 하기"
                                             >다시 하기</button>
                                             <button 
-                                                onClick={() => setScreen('difficulty')} 
+                                                onClick={() => {
+                                                    setGameFinished(false);
+                                                    setGameResult(null);
+                                                    setScreen('difficulty');
+                                                }} 
                                                 className="flex-1 py-4 bg-yellow-400 hover:bg-yellow-500 text-slate-900 text-xl font-bold rounded-2xl shadow-md transition-transform hover:scale-105"
                                                 aria-label="설정 바꾸기"
                                             >설정 바꾸기</button>
                                         </div>
                                         <button 
-                                            onClick={() => setScreen('home')} 
+                                            onClick={() => {
+                                                setGameFinished(false);
+                                                setGameResult(null);
+                                                setPlayerNickname('');
+                                                setScreen('home');
+                                            }} 
                                             className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl transition-colors"
                                             aria-label="홈으로"
                                         >홈으로</button>
