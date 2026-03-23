@@ -17,6 +17,7 @@
             font-family: 'Gaegu', cursive; 
             margin: 0;
             overflow: hidden;
+            transition: background 0.5s ease;
         }
         
         /* 카드 3D 애니메이션 */
@@ -34,7 +35,7 @@
             width: 100%;
             height: 100%;
             backface-visibility: hidden;
-            border-radius: 12px;
+            border-radius: 16px;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -49,9 +50,9 @@
         .particle {
             position: fixed;
             pointer-events: none;
-            font-size: 2rem;
+            font-size: 2.5rem;
             animation: particle-burst 0.8s ease-out forwards;
-            z-index: 50;
+            z-index: 100;
         }
 
         /* 애니메이션 */
@@ -75,27 +76,21 @@
 
         @keyframes glow {
             0%, 100% { box-shadow: 0 0 10px rgba(34, 197, 94, 0.3); }
-            50% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.7); }
+            50% { box-shadow: 0 0 25px rgba(34, 197, 94, 0.8); }
         }
         .player-active { animation: glow 1.5s infinite; }
 
         @keyframes hint-flash {
-            0%, 100% { opacity: 0.3; }
-            50% { opacity: 1; }
+            0%, 100% { opacity: 0.3; transform: scale(1); }
+            50% { opacity: 1; transform: scale(1.05); box-shadow: 0 0 20px rgba(250, 204, 21, 0.8); }
         }
         .hint-card { animation: hint-flash 0.8s ease-in-out; }
 
-        /* 스크롤바 */
-        .scroll-area::-webkit-scrollbar {
-            width: 6px;
-        }
-        .scroll-area::-webkit-scrollbar-track {
-            background: transparent;
-        }
-        .scroll-area::-webkit-scrollbar-thumb {
-            background: rgba(150, 150, 150, 0.5);
-            border-radius: 3px;
-        }
+        /* 스크롤바 커스텀 */
+        .scroll-area::-webkit-scrollbar { width: 8px; }
+        .scroll-area::-webkit-scrollbar-track { background: transparent; }
+        .scroll-area::-webkit-scrollbar-thumb { background: rgba(150, 150, 150, 0.4); border-radius: 4px; }
+        .scroll-area::-webkit-scrollbar-thumb:hover { background: rgba(150, 150, 150, 0.6); }
     </style>
 </head>
 <body>
@@ -104,7 +99,7 @@
     <script type="text/babel">
         const { useState, useEffect, useCallback, useRef } = React;
 
-        // 음성 및 효과음 관리 (기존 AudioContext 유지 + TTS 추가)
+        // 음성 및 효과음 관리
         const SoundManager = {
             play: (type) => {
                 try {
@@ -133,28 +128,25 @@
                     oscillator.stop(audioContext.currentTime + config.duration);
                 } catch (e) {}
             },
-            // [신규 기능] 한글 음성 안내
             speak: (text) => {
                 if (!window.speechSynthesis) return;
-                window.speechSynthesis.cancel(); // 기존 재생 중인 음성 취소
+                window.speechSynthesis.cancel(); 
                 const msg = new SpeechSynthesisUtterance(text);
                 msg.lang = 'ko-KR';
-                msg.rate = 1.1; // 약간 빠르게
+                msg.rate = 1.1; 
                 window.speechSynthesis.speak(msg);
             }
         };
 
-        // 파티클 생성 (기존 유지)
         const createParticles = (x, y) => {
             const particles = [];
-            const emojis = ['✨', '⭐', '🌟', '💫', '🎉'];
-            for (let i = 0; i < 12; i++) {
-                const angle = (i / 12) * Math.PI * 2;
-                const distance = 60 + Math.random() * 120;
+            const emojis = ['✨', '⭐', '🌟', '🎉', '🎊', '👍'];
+            for (let i = 0; i < 15; i++) {
+                const angle = (i / 15) * Math.PI * 2;
+                const distance = 80 + Math.random() * 150;
                 particles.push({
                     id: Math.random(),
-                    x: x - 15,
-                    y: y - 15,
+                    x: x - 20, y: y - 20,
                     tx: Math.cos(angle) * distance,
                     ty: Math.sin(angle) * distance,
                     emoji: emojis[Math.floor(Math.random() * emojis.length)]
@@ -163,7 +155,6 @@
             return particles;
         };
 
-        // 통계 저장소 (기존 유지)
         const Stats = {
             save: (data) => {
                 try {
@@ -181,19 +172,48 @@
             }
         };
 
+        // UI 테마 정의 (글래스모피즘 & 그라데이션 복구)
+        const themes = {
+            dark: {
+                bg: "bg-gradient-to-br from-slate-900 via-slate-800 to-[#0f3460]",
+                text: "text-white",
+                panel: "bg-slate-800/60 backdrop-blur-xl border border-white/10 shadow-2xl",
+                cardBoard: "bg-slate-900/40 backdrop-blur-md border border-white/10 shadow-inner",
+                heading: "text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-pink-400 to-purple-400",
+                primaryBtn: "bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-300 hover:to-yellow-400 text-slate-900 shadow-[0_0_20px_rgba(250,204,21,0.4)]",
+                secondaryBtn: "bg-slate-700/80 hover:bg-slate-600 text-white backdrop-blur-sm",
+                input: "bg-slate-900/50 border border-slate-600 text-white placeholder-slate-400",
+                statBox: "bg-black/30 border border-white/5",
+                cardFront: "bg-gradient-to-br from-blue-600 to-indigo-800 border-2 border-white/20 shadow-xl",
+                cardBack: "bg-white border-4 border-yellow-400"
+            },
+            light: {
+                bg: "bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50",
+                text: "text-slate-800",
+                panel: "bg-white/70 backdrop-blur-xl border border-white shadow-2xl",
+                cardBoard: "bg-white/40 backdrop-blur-md border border-white shadow-inner",
+                heading: "text-transparent bg-clip-text bg-gradient-to-r from-blue-600 to-indigo-600",
+                primaryBtn: "bg-gradient-to-r from-blue-500 to-indigo-600 hover:from-blue-400 hover:to-indigo-500 text-white shadow-[0_5px_20px_rgba(79,70,229,0.4)]",
+                secondaryBtn: "bg-white hover:bg-gray-50 text-slate-700 shadow-md",
+                input: "bg-white border border-indigo-100 text-slate-800 placeholder-slate-400 shadow-inner",
+                statBox: "bg-white/60 border border-indigo-100 shadow-sm",
+                cardFront: "bg-gradient-to-br from-blue-400 to-indigo-500 border-2 border-white shadow-lg",
+                cardBack: "bg-white border-4 border-indigo-400"
+            }
+        };
+
         const MemoryGame = () => {
             const [screen, setScreen] = useState('home');
-            // [신규 기능] 테마 상태
             const [theme, setTheme] = useState('dark');
-            // [신규 기능] 일시정지 상태
             const [isPaused, setIsPaused] = useState(false);
             
-            const [difficulty, setDifficulty] = useState(8); // 난이도 기본값 수정
+            const [difficulty, setDifficulty] = useState(8); 
             const [playerMode, setPlayerMode] = useState('single');
             const [timeLimit, setTimeLimit] = useState(0); 
             const [images, setImages] = useState([]);
             const [imageLabels, setImageLabels] = useState({});
             const [useTextMatching, setUseTextMatching] = useState(false);
+            
             const [cards, setCards] = useState([]);
             const [flipped, setFlipped] = useState([]);
             const [solved, setSolved] = useState([]);
@@ -207,24 +227,9 @@
             const [hints, setHints] = useState(3);
             const [hintedCards, setHintedCards] = useState([]);
             const [gameResult, setGameResult] = useState(null);
+            
             const particleTimeout = useRef(null);
-
-            // 테마에 따른 스타일 클래스 정의
-            const themeClasses = {
-                dark: {
-                    bg: "bg-gradient-to-br from-[#0f172a] via-[#1e293b] to-[#0f3460]",
-                    text: "text-white",
-                    panel: "bg-slate-800",
-                    border: "border-slate-600"
-                },
-                light: {
-                    bg: "bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50",
-                    text: "text-slate-900",
-                    panel: "bg-white",
-                    border: "border-blue-200"
-                }
-            };
-            const currentTheme = themeClasses[theme];
+            const t = themes[theme]; // 현재 테마 스타일 객체
 
             const handleImageUpload = (e) => {
                 const files = Array.from(e.target.files);
@@ -232,20 +237,9 @@
                 setImages(prev => [...prev, ...newImages].slice(0, 16));
             };
 
-            const updateImageLabel = (index, label) => {
-                setImageLabels(prev => ({ ...prev, [index]: label }));
-            };
-
-            const removeImage = (index) => {
-                setImages(prev => prev.filter((_, i) => i !== index));
-                const newLabels = { ...imageLabels };
-                delete newLabels[index];
-                setImageLabels(newLabels);
-            };
-
             const startGame = () => {
                 if (images.length < difficulty) {
-                    alert(`최소 ${difficulty}개 이상의 이미지를 업로드해주세요!`);
+                    alert(`최소 ${difficulty}개 이상의 이미지가 필요합니다!`);
                     return;
                 }
 
@@ -255,8 +249,8 @@
                 if (useTextMatching) {
                     selectedImages.forEach((url, idx) => {
                         const pairId = `pair-${idx}`;
-                        deck.push({ pairId, url, label: imageLabels[idx] || `이미지 ${idx + 1}`, type: 'image' });
-                        deck.push({ pairId, url, label: imageLabels[idx] || `이미지 ${idx + 1}`, type: 'text' });
+                        deck.push({ pairId, url, label: imageLabels[idx] || `그림 ${idx + 1}`, type: 'image' });
+                        deck.push({ pairId, url, label: imageLabels[idx] || `그림 ${idx + 1}`, type: 'text' });
                     });
                 } else {
                     deck = [...selectedImages, ...selectedImages].map((url, index) => ({
@@ -282,25 +276,23 @@
                 setIsPaused(false);
                 setScreen('playing');
                 
-                // 시작 음성
-                SoundManager.speak("게임을 시작합니다. 같은 카드를 찾아보세요!");
+                SoundManager.speak("게임을 시작합니다. 화이팅!");
             };
 
-            // 타이머 (일시정지 조건 추가)
             useEffect(() => {
                 let interval = null;
                 if (isActive && !gameFinished && !isPaused) {
                     interval = setInterval(() => {
-                        setTimer(t => t + 1);
+                        setTimer(prev => prev + 1);
                         if (timeLimit > 0) {
-                            setTimeRemaining(t => {
-                                if (t <= 1) {
+                            setTimeRemaining(prev => {
+                                if (prev <= 1) {
                                     setGameFinished(true);
                                     setIsActive(false);
                                     SoundManager.speak("시간이 종료되었습니다.");
                                     return 0;
                                 }
-                                return t - 1;
+                                return prev - 1;
                             });
                         }
                     }, 1000);
@@ -308,21 +300,14 @@
                 return () => clearInterval(interval);
             }, [isActive, gameFinished, isPaused, timeLimit]);
 
-            // 게임 완료 감지
             useEffect(() => {
                 if (solved.length > 0 && solved.length === cards.length && cards.length > 0) {
                     setGameFinished(true);
                     setIsActive(false);
                     SoundManager.play('win');
-                    SoundManager.speak("축하합니다! 모든 카드를 맞췄어요!");
+                    SoundManager.speak("축하합니다! 모두 맞췄어요!");
                     
-                    const result = {
-                        time: timer,
-                        difficulty,
-                        playerMode,
-                        p1Score: scores.player1,
-                        p2Score: scores.player2
-                    };
+                    const result = { time: timer, difficulty, playerMode, p1Score: scores.player1, p2Score: scores.player2 };
                     setGameResult(result);
                     Stats.save(result);
                 }
@@ -330,21 +315,15 @@
 
             const useHint = () => {
                 if (hints === 0 || solved.length === cards.length || isPaused) return;
-                
                 SoundManager.play('hint');
-                const availableCards = cards
-                    .map((_, idx) => idx)
-                    .filter(idx => !solved.includes(idx) && !flipped.includes(idx));
-                
-                if (availableCards.length > 0) {
-                    const hintIdx = availableCards[Math.floor(Math.random() * availableCards.length)];
-                    setHintedCards([...hintedCards, hintIdx]);
+                const available = cards.map((_, idx) => idx).filter(idx => !solved.includes(idx) && !flipped.includes(idx));
+                if (available.length > 0) {
+                    setHintedCards([...hintedCards, available[Math.floor(Math.random() * available.length)]]);
                     setHints(hints - 1);
                 }
             };
 
             const handleCardClick = (id) => {
-                // 일시정지 중이거나 이미 조작 불가능한 카드면 리턴
                 if (isPaused || flipped.length === 2 || solved.includes(id) || flipped.includes(id)) return;
 
                 SoundManager.play('flip');
@@ -353,408 +332,286 @@
 
                 if (newFlipped.length === 2) {
                     const [first, second] = newFlipped;
-                    const isMatch = useTextMatching 
-                        ? cards[first].pairId === cards[second].pairId
-                        : cards[first].id === cards[second].id;
+                    const isMatch = useTextMatching ? cards[first].pairId === cards[second].pairId : cards[first].id === cards[second].id;
                     
                     if (isMatch) {
                         SoundManager.play('match');
-                        
-                        // [신규 기능] 정답 시 음성 안내
                         const labelText = cards[first].label;
-                        const matchWords = ["정답!", "맞았어요!", "대단해요!"];
-                        const randomWord = matchWords[Math.floor(Math.random() * matchWords.length)];
-                        SoundManager.speak(labelText ? `${labelText}, ${randomWord}` : randomWord);
+                        const matchWords = ["정답!", "맞았어요!", "최고예요!"];
+                        SoundManager.speak(labelText ? `${labelText}. ${matchWords[Math.floor(Math.random()*matchWords.length)]}` : matchWords[Math.floor(Math.random()*matchWords.length)]);
                         
-                        const x = Math.random() * window.innerWidth;
-                        const y = Math.random() * window.innerHeight;
+                        // 클릭한 위치 근처에서 파티클 생성 (대략적인 화면 중앙으로 설정)
+                        const x = window.innerWidth / 2;
+                        const y = window.innerHeight / 2;
                         setParticles(createParticles(x, y));
                         clearTimeout(particleTimeout.current);
                         particleTimeout.current = setTimeout(() => setParticles([]), 800);
 
                         if (playerMode === 'dual') {
-                            setScores(prev => ({
-                                ...prev,
-                                [currentPlayer === 1 ? 'player1' : 'player2']: 
-                                prev[currentPlayer === 1 ? 'player1' : 'player2'] + 1
-                            }));
+                            setScores(prev => ({ ...prev, [currentPlayer === 1 ? 'player1' : 'player2']: prev[currentPlayer === 1 ? 'player1' : 'player2'] + 1 }));
                         }
 
                         setSolved([...solved, first, second]);
                         setFlipped([]);
                     } else {
                         SoundManager.play('nomatch');
-                        SoundManager.speak("아쉽네요.");
+                        SoundManager.speak("아쉽네요. 다시 해보세요.");
                         
-                        if (playerMode === 'dual') {
-                            setTimeout(() => {
-                                setFlipped([]);
-                                setCurrentPlayer(currentPlayer === 1 ? 2 : 1);
-                            }, 1000);
-                        } else {
-                            setTimeout(() => setFlipped([]), 1000);
-                        }
+                        setTimeout(() => {
+                            setFlipped([]);
+                            if (playerMode === 'dual') setCurrentPlayer(currentPlayer === 1 ? 2 : 1);
+                        }, 1000);
                     }
                 }
             };
 
-            // 홈 화면
+            /* ================= UI 렌더링 ================= */
+            
+            // 1. 홈 화면
             if (screen === 'home') {
-                const leaderboard = Stats.load();
-                const topRecords = leaderboard.slice(-5).reverse();
-                
+                const topRecords = Stats.load().slice(-5).reverse();
                 return (
-                    <div className={`flex h-screen items-center justify-center p-4 transition-colors duration-500 ${currentTheme.bg} ${currentTheme.text}`}>
-                        <div className="max-w-2xl w-full space-y-8 relative z-10">
-                            <div className="text-center">
-                                <h1 className="text-7xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-yellow-400 via-pink-400 to-purple-400 mb-3">
-                                    🎮 메모리 챌린지
+                    <div className={`flex h-screen items-center justify-center p-4 ${t.bg}`}>
+                        <div className="max-w-2xl w-full space-y-10 relative z-10 text-center">
+                            <div>
+                                <h1 className={`text-7xl md:text-8xl font-bold ${t.heading} drop-shadow-xl mb-4`}>
+                                    메모리 챌린지
                                 </h1>
-                                <p className={`text-xl ${theme === 'dark' ? 'text-gray-300' : 'text-gray-600'}`}>전자칠판에서 즐기는 인터랙티브 게임</p>
+                                <p className={`text-2xl ${theme === 'dark' ? 'text-gray-300' : 'text-indigo-800'}`}>전자칠판 터치형 학습 게임</p>
                             </div>
 
-                            <button 
-                                onClick={() => setScreen('setup')}
-                                className="w-full py-6 bg-gradient-to-r from-yellow-400 to-yellow-500 hover:from-yellow-300 hover:to-yellow-400 text-slate-900 text-2xl font-bold rounded-2xl transition-all transform hover:scale-105 shadow-2xl"
-                            >
-                                🚀 게임 시작
+                            <button onClick={() => setScreen('setup')} className={`w-full py-6 text-3xl font-bold rounded-2xl transition-all transform hover:scale-[1.02] ${t.primaryBtn}`}>
+                                🚀 게임 시작하기
                             </button>
 
                             {topRecords.length > 0 && (
-                                <div className={`${currentTheme.panel} rounded-2xl p-6 border border-yellow-400/30 shadow-lg`}>
-                                    <h2 className="text-xl font-bold text-yellow-400 mb-4">🏆 최근 기록</h2>
-                                    <div className="space-y-2">
-                                        {topRecords.slice(0, 5).map((record, idx) => (
-                                            <div key={idx} className={`flex justify-between py-2 border-b ${currentTheme.border}`}>
-                                                <span>#{idx + 1}</span>
-                                                <span>{record.playerMode === 'single' ? '한 명 플레이' : '2명 대결'}</span>
-                                                <span className="text-yellow-500 font-bold">{record.time}초</span>
+                                <div className={`${t.panel} rounded-2xl p-8`}>
+                                    <h2 className="text-2xl font-bold text-yellow-500 mb-6 flex justify-center items-center gap-2">🏆 최근 명예의 전당</h2>
+                                    <div className="space-y-3">
+                                        {topRecords.slice(0, 5).map((rec, idx) => (
+                                            <div key={idx} className={`flex justify-between items-center py-3 px-4 rounded-xl ${t.statBox}`}>
+                                                <span className="font-bold">#{idx + 1}</span>
+                                                <span>{rec.playerMode === 'single' ? '개인전' : '대결전'} ({rec.difficulty*2}장)</span>
+                                                <span className="text-xl font-bold text-yellow-500">{rec.time}초</span>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
                             )}
 
-                            <button 
-                                onClick={() => setScreen('stats')}
-                                className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-xl transition-all shadow-md"
-                            >
-                                📊 전체 통계
+                            <button onClick={() => setScreen('stats')} className={`w-full py-4 text-xl font-bold rounded-xl transition-all ${t.secondaryBtn}`}>
+                                📊 전체 통계 보기
                             </button>
                         </div>
                     </div>
                 );
             }
 
-            // 설정 화면
+            // 2. 설정 화면 1 (이미지 업로드)
             if (screen === 'setup') {
                 return (
-                    <div className={`flex h-screen items-center justify-center p-4 transition-colors duration-500 ${currentTheme.bg}`}>
-                        <div className={`${currentTheme.panel} ${currentTheme.text} rounded-3xl p-12 text-center max-w-2xl shadow-2xl border-2 border-yellow-400 max-h-[90vh] overflow-y-auto scroll-area`}>
-                            <h1 className="text-5xl font-bold mb-2 text-yellow-500">🖼️ 이미지 설정</h1>
-                            <p className="opacity-70 mb-8">게임에 사용할 이미지를 업로드하세요</p>
+                    <div className={`flex h-screen items-center justify-center p-4 ${t.bg}`}>
+                        <div className={`${t.panel} ${t.text} rounded-3xl p-10 max-w-3xl w-full max-h-[90vh] overflow-y-auto scroll-area`}>
+                            <h1 className="text-5xl font-bold mb-4 text-center">🖼️ 이미지 설정</h1>
+                            <p className="opacity-70 text-center mb-8 text-lg">학습에 사용할 사진이나 그림을 올려주세요</p>
                             
-                            <div className="bg-blue-500/10 border-2 border-blue-400/30 rounded-xl p-4 mb-6 text-left">
-                                <p className="text-sm font-bold text-blue-500 mb-2">💡 이미지 업로드 방식:</p>
-                                <ul className="text-xs opacity-80 space-y-1">
-                                    <li>✓ 업로드한 각 이미지는 게임에서 <span className="text-yellow-500 font-bold">2장씩 나타납니다</span></li>
-                                    <li>✓ 예시: 4개 이미지 = 8장 카드</li>
-                                    <li>✓ 최대 16개 이미지 업로드 가능</li>
-                                    <li>✓ 이미지 텍스트 라벨을 추가하면 텍스트-매칭 음성 안내가 지원됩니다.</li>
-                                </ul>
+                            <div className="mb-8">
+                                <label className="flex items-center justify-center w-full h-32 px-4 transition bg-white/5 border-2 border-dashed border-gray-400 rounded-2xl appearance-none cursor-pointer hover:border-yellow-400 hover:bg-white/10 focus:outline-none">
+                                    <span className="flex items-center space-x-2">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 opacity-70" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth="2"><path strokeLinecap="round" strokeLinejoin="round" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" /></svg>
+                                        <span className="font-medium text-xl">이곳을 터치하여 사진 선택</span>
+                                    </span>
+                                    <input type="file" name="file_upload" className="hidden" multiple accept="image/*" onChange={handleImageUpload} />
+                                </label>
                             </div>
 
-                            <input 
-                                type="file" 
-                                multiple 
-                                accept="image/*"
-                                onChange={handleImageUpload}
-                                className="block w-full text-sm mb-6 file:mr-4 file:py-3 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-500 file:text-white hover:file:bg-green-600 cursor-pointer"
-                            />
-
                             {images.length > 0 && (
-                                <div className="mb-6">
-                                    <p className="text-sm opacity-70 mb-3">
-                                        업로드됨: <span className="text-yellow-500 font-bold">{images.length}개</span> = 
-                                        <span className="text-yellow-500 font-bold"> {images.length * 2}장 카드</span>
-                                    </p>
-                                    <div className="grid grid-cols-4 md:grid-cols-6 gap-2 max-h-48 overflow-y-auto scroll-area">
+                                <div className="mb-8">
+                                    <div className="flex justify-between items-end mb-4">
+                                        <p className="font-bold text-xl">업로드된 사진: <span className="text-yellow-500">{images.length}장</span></p>
+                                    </div>
+                                    <div className="grid grid-cols-4 sm:grid-cols-5 md:grid-cols-6 gap-3 max-h-60 overflow-y-auto scroll-area p-2">
                                         {images.map((img, i) => (
-                                            <div key={i} className="relative group">
-                                                <img src={img} className="w-full h-20 object-cover rounded-lg border-2 border-gray-300" />
-                                                <button
-                                                    onClick={() => removeImage(i)}
-                                                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity text-xs font-bold shadow"
-                                                >✕</button>
-                                                <input
-                                                    type="text"
-                                                    placeholder="라벨(음성용)"
-                                                    value={imageLabels[i] || ''}
-                                                    onChange={(e) => updateImageLabel(i, e.target.value)}
-                                                    className="w-full mt-1 px-2 py-1 text-xs bg-gray-100 text-gray-900 rounded border-0 placeholder-gray-400"
-                                                />
+                                            <div key={i} className="relative group flex flex-col gap-1">
+                                                <div className="relative aspect-square">
+                                                    <img src={img} className="w-full h-full object-cover rounded-xl border-2 border-white/20 shadow-md" />
+                                                    <button onClick={() => {
+                                                        setImages(prev => prev.filter((_, idx) => idx !== i));
+                                                        const newL = {...imageLabels}; delete newL[i]; setImageLabels(newL);
+                                                    }} className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-7 h-7 flex items-center justify-center font-bold shadow-lg transform hover:scale-110">✕</button>
+                                                </div>
+                                                <input type="text" placeholder="단어 입력" value={imageLabels[i] || ''} onChange={(e) => setImageLabels({...imageLabels, [i]: e.target.value})} className={`w-full px-2 py-1.5 text-sm rounded-lg text-center ${t.input}`} />
                                             </div>
                                         ))}
                                     </div>
                                 </div>
                             )}
 
-                            {images.length > 0 && (
-                                <div className="mb-6 p-4 bg-purple-500/10 rounded-xl border border-purple-400/30">
-                                    <label className="flex items-center gap-3 cursor-pointer">
-                                        <input 
-                                            type="checkbox" 
-                                            checked={useTextMatching}
-                                            onChange={(e) => setUseTextMatching(e.target.checked)}
-                                            className="w-4 h-4"
-                                        />
-                                        <span className="text-sm font-bold">📝 텍스트-이미지 매칭 모드</span>
-                                    </label>
-                                    <p className="text-xs opacity-60 mt-2 text-left">체크 시, 한 장은 그림이 한 장은 글씨가 나옵니다.</p>
-                                </div>
-                            )}
+                            <div className="mb-8 p-5 bg-gradient-to-r from-blue-500/10 to-purple-500/10 rounded-2xl border border-blue-400/20">
+                                <label className="flex items-center gap-4 cursor-pointer">
+                                    <input type="checkbox" checked={useTextMatching} onChange={(e) => setUseTextMatching(e.target.checked)} className="w-6 h-6 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+                                    <div>
+                                        <span className="text-xl font-bold block">📝 텍스트-이미지 매칭 모드 켜기</span>
+                                        <span className="text-sm opacity-70">체크하면 한 장은 '그림', 한 장은 입력한 '단어' 카드가 되어 짝을 찾습니다.</span>
+                                    </div>
+                                </label>
+                            </div>
 
-                            <button 
-                                onClick={() => setScreen('difficulty')}
-                                disabled={images.length < 4}
-                                className="w-full py-4 bg-yellow-500 hover:bg-yellow-400 disabled:bg-gray-400 text-slate-900 text-xl font-bold rounded-2xl transition-all shadow-lg transform hover:scale-105"
-                            >
-                                다음 단계 (최소 4장 필요) →
-                            </button>
-
-                            <button 
-                                onClick={() => setScreen('home')}
-                                className="w-full mt-3 py-3 bg-slate-500 hover:bg-slate-600 text-white rounded-xl transition-all"
-                            >
-                                ← 돌아가기
-                            </button>
+                            <div className="flex gap-4">
+                                <button onClick={() => setScreen('home')} className={`flex-1 py-4 text-xl font-bold rounded-2xl ${t.secondaryBtn}`}>← 돌아가기</button>
+                                <button onClick={() => setScreen('difficulty')} disabled={images.length < 4} className={`flex-[2] py-4 text-xl font-bold rounded-2xl disabled:opacity-50 disabled:cursor-not-allowed ${t.primaryBtn}`}>다음 단계 →</button>
+                            </div>
                         </div>
                     </div>
                 );
             }
 
-            // 난이도 선택
+            // 3. 설정 화면 2 (난이도/모드)
             if (screen === 'difficulty') {
                 return (
-                    <div className={`flex h-screen items-center justify-center p-4 transition-colors duration-500 ${currentTheme.bg}`}>
-                        <div className={`${currentTheme.panel} ${currentTheme.text} rounded-3xl p-12 text-center max-w-2xl shadow-2xl border-2 border-yellow-400`}>
-                            <h1 className="text-5xl font-bold mb-8 text-yellow-500">⚙️ 게임 설정</h1>
+                    <div className={`flex h-screen items-center justify-center p-4 ${t.bg}`}>
+                        <div className={`${t.panel} ${t.text} rounded-3xl p-10 max-w-2xl w-full`}>
+                            <h1 className="text-5xl font-bold mb-10 text-center">⚙️ 게임 규칙 설정</h1>
                             
-                            <div className="mb-12">
-                                <h2 className="text-2xl font-bold mb-4">난이도 (선생님 요청 반영)</h2>
-                                <div className="grid grid-cols-3 gap-4 mb-8">
-                                    {/* 4장(2쌍) 제거, 8장/12장/16장(4쌍/6쌍/8쌍)으로 구성 */}
-                                    {[4, 6, 8].map(diff => (
-                                        <button
-                                            key={diff}
-                                            onClick={() => setDifficulty(diff)}
-                                            disabled={images.length < diff}
-                                            className={`py-6 rounded-2xl text-xl font-bold transition-all transform hover:scale-105 ${
-                                                difficulty === diff
-                                                    ? 'bg-yellow-500 text-slate-900 shadow-lg border-2 border-yellow-600'
-                                                    : images.length >= diff
-                                                    ? 'bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-white'
-                                                    : 'bg-gray-300 text-gray-500 cursor-not-allowed opacity-50'
-                                            }`}
-                                        >
-                                            {diff * 2}장 <div className="text-sm opacity-75">({diff}쌍)</div>
-                                        </button>
-                                    ))}
+                            <div className="mb-10">
+                                <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">🎴 난이도 (카드 개수)</h2>
+                                <div className="grid grid-cols-3 gap-4">
+                                    {[8, 12, 16].map(diff => {
+                                        const isEnabled = images.length >= (diff/2);
+                                        const isActive = difficulty === diff/2;
+                                        return (
+                                            <button key={diff} onClick={() => setDifficulty(diff/2)} disabled={!isEnabled} className={`py-6 rounded-2xl font-bold transition-all ${isActive ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-slate-900 shadow-lg scale-105' : isEnabled ? `${t.statBox} hover:bg-white/10` : 'bg-gray-400/20 opacity-40 cursor-not-allowed'}`}>
+                                                <div className="text-3xl mb-1">{diff}장</div>
+                                                <div className="text-sm opacity-70">({diff/2}쌍)</div>
+                                            </button>
+                                        );
+                                    })}
                                 </div>
+                                {images.length < 8 && <p className="text-sm text-red-400 mt-2">* 사진이 더 필요해서 일부 난이도가 잠겼습니다.</p>}
                             </div>
 
-                            <div className="mb-12">
-                                <h2 className="text-2xl font-bold mb-4">게임 모드</h2>
+                            <div className="mb-10">
+                                <h2 className="text-2xl font-bold mb-4">👥 게임 모드</h2>
                                 <div className="grid grid-cols-2 gap-4">
                                     {[
-                                        { id: 'single', name: '🎯 한 명 플레이', desc: '기록 도전' },
-                                        { id: 'dual', name: '👥 대결 모드', desc: '2명 경쟁' }
-                                    ].map(mode => (
-                                        <button
-                                            key={mode.id}
-                                            onClick={() => setPlayerMode(mode.id)}
-                                            className={`py-6 rounded-2xl font-bold transition-all transform hover:scale-105 ${
-                                                playerMode === mode.id
-                                                    ? 'bg-green-500 text-white shadow-lg'
-                                                    : 'bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-white'
-                                            }`}
-                                        >
-                                            <div className="text-lg">{mode.name}</div>
-                                            <div className="text-xs opacity-75">{mode.desc}</div>
+                                        { id: 'single', n: '🎯 한 명 플레이', d: '기록 단축에 도전하세요' },
+                                        { id: 'dual', n: '⚔️ 대결 모드', d: '2명이 번갈아 진행합니다' }
+                                    ].map(m => (
+                                        <button key={m.id} onClick={() => setPlayerMode(m.id)} className={`p-6 rounded-2xl font-bold transition-all ${playerMode === m.id ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white shadow-lg scale-105' : `${t.statBox} hover:bg-white/10`}`}>
+                                            <div className="text-2xl mb-2">{m.n}</div>
+                                            <div className="text-sm opacity-70">{m.d}</div>
                                         </button>
                                     ))}
                                 </div>
                             </div>
 
-                            <div className="mb-12">
+                            <div className="mb-10">
                                 <h2 className="text-2xl font-bold mb-4">⏱️ 시간 제한 (선택)</h2>
-                                <div className="grid grid-cols-4 gap-2">
-                                    {[
-                                        { val: 0, label: '없음' },
-                                        { val: 120, label: '2분' },
-                                        { val: 180, label: '3분' },
-                                        { val: 300, label: '5분' }
-                                    ].map(({ val, label }) => (
-                                        <button
-                                            key={val}
-                                            onClick={() => setTimeLimit(val)}
-                                            className={`py-3 rounded-xl text-sm font-bold transition-all ${
-                                                timeLimit === val
-                                                    ? 'bg-purple-500 text-white shadow-md'
-                                                    : 'bg-slate-200 text-slate-800 hover:bg-slate-300 dark:bg-slate-700 dark:text-white'
-                                            }`}
-                                        >
-                                            {label}
+                                <div className="grid grid-cols-4 gap-3">
+                                    {[{v:0, l:'제한없음'},{v:120, l:'2분'},{v:180, l:'3분'},{v:300, l:'5분'}].map(o => (
+                                        <button key={o.v} onClick={() => setTimeLimit(o.v)} className={`py-4 rounded-xl font-bold transition-all ${timeLimit === o.v ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-md scale-105' : `${t.statBox} hover:bg-white/10`}`}>
+                                            {o.l}
                                         </button>
                                     ))}
                                 </div>
                             </div>
 
                             <div className="flex gap-4">
-                                <button 
-                                    onClick={() => setScreen('setup')}
-                                    className="flex-1 py-4 bg-slate-500 hover:bg-slate-600 text-white text-lg font-bold rounded-2xl transition-all"
-                                >
-                                    ← 돌아가기
-                                </button>
-                                <button 
-                                    onClick={startGame}
-                                    className="flex-1 py-4 bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-lg font-bold rounded-2xl transition-all shadow-lg transform hover:scale-105"
-                                >
-                                    게임 시작! 🚀
-                                </button>
+                                <button onClick={() => setScreen('setup')} className={`flex-1 py-5 text-xl font-bold rounded-2xl ${t.secondaryBtn}`}>← 사진 설정</button>
+                                <button onClick={startGame} className={`flex-[2] py-5 text-2xl font-bold rounded-2xl ${t.primaryBtn}`}>🚀 게임 시작!</button>
                             </div>
                         </div>
                     </div>
                 );
             }
 
-            // 게임 진행 화면
+            // 4. 게임 진행 화면
             if (screen === 'playing') {
                 return (
-                    <div className={`flex h-screen flex-col md:flex-row p-4 gap-4 overflow-hidden transition-colors duration-500 ${currentTheme.bg} ${currentTheme.text}`}>
-                        {/* 좌측 패널 */}
-                        <div className={`w-full md:w-1/4 ${currentTheme.panel} rounded-2xl p-6 border-2 border-yellow-400 flex flex-col overflow-y-auto scroll-area shadow-xl`}>
-                            <div className="flex justify-between items-center mb-4">
-                                <h2 className="text-2xl font-bold text-yellow-500">📊 정보</h2>
-                                {/* 테마 변경 버튼 */}
-                                <button 
-                                    onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')}
-                                    className="p-2 rounded-full bg-slate-200 dark:bg-slate-700 text-xl shadow"
-                                    title="테마 변경"
-                                >
+                    <div className={`flex h-screen flex-col md:flex-row p-4 gap-4 ${t.bg} ${t.text}`}>
+                        {/* 좌측 패널 (정보 및 컨트롤) */}
+                        <div className={`w-full md:w-72 ${t.panel} rounded-3xl p-6 flex flex-col shadow-2xl z-10`}>
+                            <div className="flex justify-between items-center mb-6">
+                                <h2 className="text-2xl font-bold flex items-center gap-2">📊 게임 정보</h2>
+                                <button onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} className={`p-2 rounded-full ${t.statBox} shadow-sm transition hover:scale-110`} title="테마 변경">
                                     {theme === 'dark' ? '☀️' : '🌙'}
                                 </button>
                             </div>
                             
-                            {/* 일시정지 버튼 */}
-                            <button 
-                                onClick={() => setIsPaused(!isPaused)}
-                                className={`w-full py-3 mb-6 rounded-xl font-bold text-lg transition-all ${
-                                    isPaused 
-                                    ? 'bg-green-500 text-white animate-pulse shadow-lg' 
-                                    : 'bg-red-500 hover:bg-red-600 text-white shadow-md'
-                                }`}
-                            >
-                                {isPaused ? '▶️ 게임 재개' : '⏸️ 일시정지'}
+                            {/* 일시정지 */}
+                            <button onClick={() => setIsPaused(!isPaused)} className={`w-full py-4 mb-6 rounded-2xl font-bold text-xl transition-all shadow-md ${isPaused ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white animate-pulse' : 'bg-red-500 hover:bg-red-600 text-white'}`}>
+                                {isPaused ? '▶️ 게임 계속하기' : '⏸️ 일시정지'}
                             </button>
 
-                            {/* 타이머 */}
-                            <div className={`text-center bg-black/10 dark:bg-white/10 p-4 rounded-xl mb-6 ${isActive && !isPaused ? 'timer-active' : ''}`}>
-                                <p className="text-sm opacity-70">⏱️ 경과 시간</p>
-                                <p className="text-4xl font-mono text-yellow-500 font-bold">{timer}초</p>
+                            {/* 타이머 & 진행도 박스 */}
+                            <div className={`p-5 rounded-2xl mb-6 ${t.statBox} ${isActive && !isPaused ? 'timer-active' : ''}`}>
+                                <div className="text-center mb-4">
+                                    <p className="text-sm opacity-70 mb-1">⏱️ 경과 시간</p>
+                                    <p className={`text-5xl font-mono font-bold ${theme === 'dark' ? 'text-yellow-400' : 'text-blue-600'}`}>{timer}초</p>
+                                </div>
+                                
+                                {timeLimit > 0 && (
+                                    <div className="text-center mb-4 pt-4 border-t border-white/10">
+                                        <p className="text-sm opacity-70 mb-1">⏳ 남은 시간</p>
+                                        <p className={`text-2xl font-mono font-bold ${timeRemaining <= 10 ? 'text-red-500 animate-pulse' : ''}`}>
+                                            {Math.floor(timeRemaining / 60)}:{String(timeRemaining % 60).padStart(2, '0')}
+                                        </p>
+                                    </div>
+                                )}
+
+                                <div>
+                                    <div className="flex justify-between text-xs opacity-70 mb-1">
+                                        <span>진행도</span>
+                                        <span>{solved.length} / {cards.length}</span>
+                                    </div>
+                                    <div className="bg-black/20 dark:bg-white/20 rounded-full h-2.5 overflow-hidden">
+                                        <div className="bg-gradient-to-r from-blue-400 to-green-400 h-full transition-all duration-500" style={{width: `${cards.length > 0 ? (solved.length / cards.length) * 100 : 0}%`}} />
+                                    </div>
+                                </div>
                             </div>
 
-                            {/* 시간 제한 */}
-                            {timeLimit > 0 && (
-                                <div className={`text-center p-4 rounded-xl mb-6 border ${timeRemaining <= 10 ? 'border-red-500 bg-red-500/20' : 'border-purple-400 bg-purple-500/10'}`}>
-                                    <p className="text-sm opacity-70">⏳ 남은 시간</p>
-                                    <p className={`text-3xl font-mono font-bold ${timeRemaining <= 10 ? 'text-red-500' : 'text-purple-500'}`}>
-                                        {Math.floor(timeRemaining / 60)}:{String(timeRemaining % 60).padStart(2, '0')}
-                                    </p>
-                                </div>
-                            )}
-
-                            {/* 진행도 */}
-                            <div className="mb-6">
-                                <p className="text-sm opacity-70 mb-2">진행도</p>
-                                <div className="bg-gray-300 dark:bg-slate-700 rounded-full h-3 overflow-hidden">
-                                    <div 
-                                        className="bg-gradient-to-r from-green-400 to-blue-500 h-full transition-all duration-300"
-                                        style={{width: `${cards.length > 0 ? (solved.length / cards.length) * 100 : 0}%`}}
-                                    />
-                                </div>
-                                <p className="text-xs opacity-70 mt-2 text-center">{solved.length} / {cards.length}</p>
-                            </div>
-
-                            {/* 힌트 */}
-                            <button
-                                onClick={useHint}
-                                disabled={hints === 0 || solved.length === cards.length || isPaused}
-                                className={`w-full py-3 rounded-xl font-bold mb-4 transition-all shadow-md ${
-                                    hints > 0 && solved.length < cards.length && !isPaused
-                                        ? 'bg-blue-600 hover:bg-blue-500 text-white'
-                                        : 'bg-gray-400 text-gray-200 opacity-50 cursor-not-allowed'
-                                }`}
-                            >
-                                💡 힌트 {hints}회 남음
+                            {/* 힌트 버튼 */}
+                            <button onClick={useHint} disabled={hints === 0 || solved.length === cards.length || isPaused} className={`w-full py-4 rounded-2xl font-bold mb-6 transition-all shadow-md ${hints > 0 && !isPaused ? 'bg-gradient-to-r from-blue-500 to-blue-600 text-white hover:scale-[1.02]' : 'bg-gray-500/50 text-white/50 cursor-not-allowed'}`}>
+                                💡 찬스: 매직 힌트 ({hints}회)
                             </button>
 
-                            {/* 다인용 스코어 */}
+                            {/* 대결 스코어 */}
                             {playerMode === 'dual' && (
                                 <div className="space-y-3 mb-4">
-                                    {[1, 2].map(player => (
-                                        <div 
-                                            key={player} 
-                                            className={`p-4 rounded-xl border-2 transition-all ${
-                                                currentPlayer === player
-                                                    ? 'bg-green-500/20 border-green-500 player-active'
-                                                    : 'bg-black/5 dark:bg-white/5 border-transparent opacity-60'
-                                            }`}
-                                        >
-                                            <p className="text-xs opacity-75 font-bold">학생 {player}</p>
-                                            <p className="text-3xl font-bold text-yellow-500">{scores[`player${player}`]}점</p>
+                                    {[1, 2].map(p => (
+                                        <div key={p} className={`p-4 rounded-2xl border-2 transition-all ${currentPlayer === p ? 'border-green-400 bg-green-400/20 player-active scale-105' : 'border-transparent bg-black/10 opacity-50'}`}>
+                                            <p className="text-sm font-bold opacity-80">학생 {p} {currentPlayer === p && '🎯'}</p>
+                                            <p className="text-4xl font-bold text-center mt-1">{scores[`player${p}`]}점</p>
                                         </div>
                                     ))}
                                 </div>
                             )}
 
-                            <button 
-                                onClick={() => setScreen('difficulty')}
-                                className="mt-auto py-3 bg-gray-500 hover:bg-gray-600 text-white font-bold rounded-xl transition-all"
-                            >
-                                🔄 다시 설정
+                            <button onClick={() => setScreen('difficulty')} className={`mt-auto w-full py-4 text-lg font-bold rounded-2xl ${t.secondaryBtn}`}>
+                                🔄 설정으로
                             </button>
                         </div>
 
-                        {/* 우측 게임판 */}
-                        <div className={`flex-1 ${currentTheme.panel} rounded-2xl p-6 border-2 border-yellow-400 relative flex flex-wrap justify-center content-center gap-3 overflow-hidden shadow-inner`}>
+                        {/* 우측 메인 게임판 */}
+                        <div className={`flex-1 ${t.cardBoard} rounded-3xl p-6 relative flex flex-wrap justify-center content-center gap-3 md:gap-4 overflow-hidden`}>
                             {cards.map((card, index) => {
                                 const isFlipped = flipped.includes(index) || solved.includes(index);
                                 const isMatched = solved.includes(index);
                                 const isHinted = hintedCards.includes(index);
                                 
                                 return (
-                                    <div 
-                                        key={index}
-                                        onClick={() => handleCardClick(index)}
-                                        className={`card-flip rounded-lg cursor-pointer transform transition-transform duration-200 hover:scale-105 ${
-                                            isMatched ? 'card-matched opacity-60' : ''
-                                        } ${isHinted ? 'hint-card' : ''}`}
-                                        style={{
-                                            width: difficulty <= 4 ? '30%' : difficulty <= 6 ? '22%' : '18%',
-                                            aspectRatio: '2/3'
-                                        }}
-                                    >
+                                    <div key={index} onClick={() => handleCardClick(index)} className={`card-flip rounded-xl cursor-pointer transform transition-transform duration-200 hover:scale-[1.03] ${isMatched ? 'card-matched opacity-50 grayscale-[0.3]' : ''} ${isHinted ? 'hint-card' : ''}`} style={{ width: difficulty <= 4 ? '28%' : difficulty <= 6 ? '22%' : '18%', aspectRatio: '3/4' }}>
                                         <div className={`card-inner ${isFlipped ? 'flipped' : ''}`}>
-                                            <div className="card-front bg-gradient-to-br from-blue-600 to-blue-800 border-4 border-white shadow-xl flex flex-col items-center justify-center">
-                                                <span className="text-5xl text-white">?</span>
+                                            <div className={`card-front ${t.cardFront} flex flex-col items-center justify-center`}>
+                                                <div className="w-16 h-16 md:w-20 md:h-20 bg-white/20 rounded-full flex items-center justify-center backdrop-blur-sm">
+                                                    <span className="text-4xl md:text-5xl text-white font-bold drop-shadow-md">?</span>
+                                                </div>
                                             </div>
-                                            <div className="card-back bg-white border-4 border-yellow-400 shadow-xl overflow-hidden flex flex-col items-center justify-center p-2">
+                                            <div className={`card-back ${t.cardBack} rounded-xl overflow-hidden p-2 flex items-center justify-center`}>
                                                 {useTextMatching && card.type === 'text' ? (
-                                                    <p className="text-center font-bold text-gray-900 text-xl md:text-2xl lg:text-3xl leading-tight break-words px-2">{card.label}</p>
+                                                    <p className="text-center font-bold text-gray-900 text-2xl md:text-3xl lg:text-4xl break-words leading-tight">{card.label}</p>
                                                 ) : (
-                                                    <img src={card.url} className="w-full h-full object-cover rounded-sm" />
+                                                    <img src={card.url} className="w-full h-full object-cover rounded-lg" />
                                                 )}
                                             </div>
                                         </div>
@@ -764,86 +621,56 @@
 
                             {/* 일시정지 오버레이 */}
                             {isPaused && (
-                                <div className="absolute inset-0 bg-slate-900/90 backdrop-blur-md flex flex-col items-center justify-center z-[60] rounded-2xl">
-                                    <h2 className="text-6xl font-bold text-yellow-400 mb-8 animate-pulse">PAUSED</h2>
-                                    <p className="text-2xl text-white mb-8">잠시 쉬어가는 시간입니다</p>
-                                    <button 
-                                        onClick={() => setIsPaused(false)} 
-                                        className="px-10 py-4 bg-green-500 text-white text-2xl font-bold rounded-full shadow-2xl hover:scale-110 transition-transform"
-                                    >
-                                        게임 재개하기 ▶️
-                                    </button>
+                                <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md flex flex-col items-center justify-center z-50 rounded-3xl">
+                                    <div className="bg-white/10 p-10 rounded-3xl text-center border border-white/20 shadow-2xl">
+                                        <h2 className="text-6xl font-bold text-yellow-400 mb-6 tracking-widest animate-pulse">PAUSE</h2>
+                                        <p className="text-2xl text-white mb-10">선생님의 설명을 들어보세요 🤫</p>
+                                        <button onClick={() => setIsPaused(false)} className="px-10 py-5 bg-gradient-to-r from-green-400 to-emerald-500 text-white text-3xl font-bold rounded-full shadow-lg transform hover:scale-105 transition-all">
+                                            게임 계속하기 ▶️
+                                        </button>
+                                    </div>
                                 </div>
                             )}
 
                             {/* 파티클 */}
-                            {particles.map(particle => (
-                                <div
-                                    key={particle.id}
-                                    className="particle"
-                                    style={{
-                                        left: particle.x,
-                                        top: particle.y,
-                                        '--tx': `${particle.tx}px`,
-                                        '--ty': `${particle.ty}px`,
-                                    }}
-                                >
-                                    {particle.emoji}
-                                </div>
-                            ))}
+                            {particles.map(p => <div key={p.id} className="particle" style={{left: p.x, top: p.y, '--tx': `${p.tx}px`, '--ty': `${p.ty}px`}}>{p.emoji}</div>)}
 
                             {/* 게임 완료 오버레이 */}
                             {gameFinished && gameResult && (
-                                <div className="absolute inset-0 bg-black/80 backdrop-blur-sm flex items-center justify-center z-[70] rounded-2xl">
-                                    <div className="bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-3xl p-12 text-center max-w-md shadow-2xl border-4 border-yellow-300">
-                                        <h1 className="text-6xl mb-4 bounce-animation">🎉</h1>
-                                        <h1 className="text-5xl font-bold text-slate-900 mb-4">축하합니다!</h1>
+                                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 rounded-3xl">
+                                    <div className="bg-white rounded-3xl p-12 text-center max-w-lg w-full shadow-[0_0_50px_rgba(250,204,21,0.5)] border-4 border-yellow-400 transform animate-in zoom-in duration-300">
+                                        <div className="text-7xl mb-4 bounce-animation">🎉</div>
+                                        <h1 className="text-5xl font-bold text-slate-900 mb-8">완료했어요!</h1>
                                         
                                         {playerMode === 'dual' ? (
-                                            <div className="my-8 space-y-4">
-                                                <p className="text-2xl font-bold text-slate-800">
-                                                    {gameResult.p1Score > gameResult.p2Score ? '학생 1 승리! 🏆' : 
-                                                     gameResult.p2Score > gameResult.p1Score ? '학생 2 승리! 🏆' : '무승부! 🤝'}
+                                            <div className="mb-8 bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                                                <p className="text-3xl font-bold text-slate-800 mb-6">
+                                                    {gameResult.p1Score > gameResult.p2Score ? '학생 1 승리! 🏆' : gameResult.p2Score > gameResult.p1Score ? '학생 2 승리! 🏆' : '사이좋게 무승부! 🤝'}
                                                 </p>
-                                                <div className="grid grid-cols-2 gap-4">
-                                                    <div className="bg-white/80 rounded-xl p-4 shadow-inner">
-                                                        <p className="text-sm text-slate-600">학생 1</p>
-                                                        <p className="text-3xl font-bold text-blue-600">{gameResult.p1Score}</p>
+                                                <div className="flex justify-around">
+                                                    <div>
+                                                        <p className="text-sm text-slate-500 mb-1">학생 1</p>
+                                                        <p className="text-4xl font-bold text-blue-500">{gameResult.p1Score}점</p>
                                                     </div>
-                                                    <div className="bg-white/80 rounded-xl p-4 shadow-inner">
-                                                        <p className="text-sm text-slate-600">학생 2</p>
-                                                        <p className="text-3xl font-bold text-red-600">{gameResult.p2Score}</p>
+                                                    <div className="w-px bg-slate-300 mx-4"></div>
+                                                    <div>
+                                                        <p className="text-sm text-slate-500 mb-1">학생 2</p>
+                                                        <p className="text-4xl font-bold text-red-500">{gameResult.p2Score}점</p>
                                                     </div>
                                                 </div>
                                             </div>
                                         ) : (
-                                            <div className="my-8">
-                                                <p className="text-4xl font-bold text-slate-900 mb-2">{gameResult.time}초</p>
-                                                <p className="text-lg text-slate-700">새 기록을 세웠어요! 🌟</p>
+                                            <div className="mb-8 bg-slate-50 p-6 rounded-2xl border border-slate-200">
+                                                <p className="text-xl text-slate-500 mb-2">기록</p>
+                                                <p className="text-6xl font-bold text-yellow-500">{gameResult.time}<span className="text-3xl">초</span></p>
                                             </div>
                                         )}
 
-                                        <div className="flex gap-4 mt-8">
-                                            <button 
-                                                onClick={startGame}
-                                                className="flex-1 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold transition-all shadow-md"
-                                            >
-                                                다시 하기
-                                            </button>
-                                            <button 
-                                                onClick={() => setScreen('difficulty')}
-                                                className="flex-1 py-4 bg-white hover:bg-gray-100 text-slate-900 rounded-2xl font-bold transition-all shadow-md"
-                                            >
-                                                설정 변경
-                                            </button>
+                                        <div className="flex gap-4 mb-4">
+                                            <button onClick={startGame} className="flex-1 py-4 bg-slate-900 hover:bg-slate-800 text-white text-xl font-bold rounded-2xl shadow-md transition-transform hover:scale-105">다시 하기</button>
+                                            <button onClick={() => setScreen('difficulty')} className="flex-1 py-4 bg-yellow-400 hover:bg-yellow-500 text-slate-900 text-xl font-bold rounded-2xl shadow-md transition-transform hover:scale-105">설정 바꾸기</button>
                                         </div>
-
-                                        <button 
-                                            onClick={() => setScreen('home')}
-                                            className="w-full mt-4 py-3 bg-black/10 hover:bg-black/20 text-slate-900 rounded-xl font-bold transition-all"
-                                        >
-                                            홈으로
-                                        </button>
+                                        <button onClick={() => setScreen('home')} className="w-full py-3 bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold rounded-xl transition-colors">홈 화면으로</button>
                                     </div>
                                 </div>
                             )}
@@ -852,62 +679,48 @@
                 );
             }
 
-            // 통계 화면 (기존 유지)
+            // 5. 통계 화면
             if (screen === 'stats') {
                 const allStats = Stats.load();
                 const singleStats = allStats.filter(s => s.playerMode === 'single');
-                const dualStats = allStats.filter(s => s.playerMode === 'dual');
-                
-                const bestTime = singleStats.length > 0 
-                    ? Math.min(...singleStats.map(s => s.time))
-                    : 'N/A';
+                const bestTime = singleStats.length > 0 ? Math.min(...singleStats.map(s => s.time)) : 'N/A';
 
                 return (
-                    <div className={`flex h-screen items-center justify-center p-4 transition-colors duration-500 ${currentTheme.bg}`}>
-                        <div className={`${currentTheme.panel} ${currentTheme.text} rounded-3xl p-12 text-center max-w-2xl shadow-2xl border-2 border-yellow-400 max-h-[90vh] overflow-y-auto scroll-area`}>
-                            <h1 className="text-5xl font-bold mb-8 text-yellow-500">📊 통계</h1>
+                    <div className={`flex h-screen items-center justify-center p-4 ${t.bg}`}>
+                        <div className={`${t.panel} ${t.text} rounded-3xl p-12 max-w-2xl w-full text-center`}>
+                            <h1 className="text-5xl font-bold mb-10 text-yellow-500">📊 종합 통계</h1>
                             
-                            <div className="grid grid-cols-3 gap-4 mb-8">
-                                <div className="bg-black/5 dark:bg-white/5 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
-                                    <p className="opacity-70 text-sm">총 게임</p>
-                                    <p className="text-3xl font-bold text-yellow-500">{allStats.length}</p>
+                            <div className="grid grid-cols-3 gap-6 mb-10">
+                                <div className={`${t.statBox} p-6 rounded-2xl`}>
+                                    <p className="opacity-70 text-sm mb-2">총 플레이</p>
+                                    <p className="text-4xl font-bold text-yellow-500">{allStats.length}회</p>
                                 </div>
-                                <div className="bg-black/5 dark:bg-white/5 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
-                                    <p className="opacity-70 text-sm">최고 기록</p>
-                                    <p className="text-2xl font-bold text-green-500">{bestTime === 'N/A' ? 'N/A' : bestTime + '초'}</p>
+                                <div className={`${t.statBox} p-6 rounded-2xl`}>
+                                    <p className="opacity-70 text-sm mb-2">최고 기록</p>
+                                    <p className="text-4xl font-bold text-green-500">{bestTime === 'N/A' ? '-' : bestTime + '초'}</p>
                                 </div>
-                                <div className="bg-black/5 dark:bg-white/5 p-4 rounded-xl border border-gray-200 dark:border-gray-700">
-                                    <p className="opacity-70 text-sm">평균 시간</p>
-                                    <p className="text-2xl font-bold text-blue-500">
-                                        {singleStats.length > 0 
-                                            ? Math.round(singleStats.reduce((a, b) => a + b.time, 0) / singleStats.length) + '초'
-                                            : 'N/A'
-                                        }
-                                    </p>
+                                <div className={`${t.statBox} p-6 rounded-2xl`}>
+                                    <p className="opacity-70 text-sm mb-2">평균 시간</p>
+                                    <p className="text-4xl font-bold text-blue-500">{singleStats.length > 0 ? Math.round(singleStats.reduce((a, b) => a + b.time, 0) / singleStats.length) + '초' : '-'}</p>
                                 </div>
                             </div>
 
                             {singleStats.length > 0 && (
-                                <div className="mb-8 text-left">
-                                    <h2 className="text-2xl font-bold text-yellow-500 mb-4">🏆 한 명 플레이 TOP 5</h2>
-                                    <div className="space-y-2">
+                                <div className="mb-10 text-left bg-black/10 dark:bg-white/5 p-6 rounded-2xl">
+                                    <h2 className="text-2xl font-bold mb-4 flex items-center gap-2">🏆 명예의 전당 (TOP 5)</h2>
+                                    <div className="space-y-3">
                                         {singleStats.sort((a, b) => a.time - b.time).slice(0, 5).map((stat, idx) => (
-                                            <div key={idx} className="flex justify-between bg-black/5 dark:bg-white/5 p-3 rounded-lg border border-gray-200 dark:border-gray-700">
-                                                <span>#{idx + 1}</span>
-                                                <span>{stat.difficulty * 2}장</span>
-                                                <span className="text-yellow-500 font-bold">{stat.time}초</span>
+                                            <div key={idx} className={`flex justify-between items-center ${t.statBox} p-4 rounded-xl`}>
+                                                <span className="font-bold text-lg w-8">{idx + 1}</span>
+                                                <span className="opacity-80 flex-1">{stat.difficulty * 2}장 모드</span>
+                                                <span className="text-yellow-500 font-bold text-xl">{stat.time}초</span>
                                             </div>
                                         ))}
                                     </div>
                                 </div>
                             )}
 
-                            <button 
-                                onClick={() => setScreen('home')}
-                                className="w-full py-4 bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-xl font-bold rounded-2xl transition-all shadow-lg"
-                            >
-                                ← 홈으로
-                            </button>
+                            <button onClick={() => setScreen('home')} className={`w-full py-5 text-xl font-bold rounded-2xl ${t.primaryBtn}`}>← 돌아가기</button>
                         </div>
                     </div>
                 );
