@@ -223,6 +223,8 @@
             const [imageErrors, setImageErrors] = useState({});
             const [countDown, setCountDown] = useState(null);
             const [showLeaderboard, setShowLeaderboard] = useState(false);
+            const [playerNickname, setPlayerNickname] = useState('');
+            const [showNicknameModal, setShowNicknameModal] = useState(false);
             
             const particleTimeout = useRef(null);
             const isSpeaking = useRef(false);
@@ -268,6 +270,16 @@
                 const files = Array.from(e.target.files);
                 const newImages = files.map(file => URL.createObjectURL(file));
                 setImages(prev => [...prev, ...newImages].slice(0, 16));
+                
+                // 난이도 자동 선택
+                const totalImages = Math.min(prev.length + newImages.length, 16);
+                if (totalImages >= 8) {
+                    setDifficulty(8);
+                } else if (totalImages >= 6) {
+                    setDifficulty(6);
+                } else if (totalImages >= 4) {
+                    setDifficulty(4);
+                }
             };
 
             const updateImageLabel = (imageUrl, label) => {
@@ -287,6 +299,21 @@
 
             // ====== 게임 시작 ======
             const startGame = () => {
+                if (images.length < difficulty) {
+                    alert(`최소 ${difficulty}개 이상의 이미지가 필요합니다!`);
+                    return;
+                }
+                
+                // 닉네임 입력 모달 표시
+                setShowNicknameModal(true);
+            };
+
+            const startGameWithNickname = () => {
+                if (!playerNickname.trim()) {
+                    alert('닉네임을 입력해주세요!');
+                    return;
+                }
+
                 if (images.length < difficulty) {
                     alert(`최소 ${difficulty}개 이상의 이미지가 필요합니다!`);
                     return;
@@ -311,7 +338,7 @@
                 }
                 
                 deck = deck.sort(() => Math.random() - 0.5).map((card, idx) => ({ ...card, index: idx }));
-                
+
                 setCards(deck);
                 setSolved([]);
                 setFlipped([]);
@@ -325,6 +352,7 @@
                 setIsPaused(false);
                 warningPlayed.current = false;
                 setScreen('playing');
+                setShowNicknameModal(false);
                 
                 // 카운트다운 시작
                 setCountDown(3);
@@ -383,7 +411,8 @@
                         difficulty, 
                         playerMode, 
                         p1Score: scores.player1, 
-                        p2Score: scores.player2 
+                        p2Score: scores.player2,
+                        nickname: playerNickname
                     };
                     setGameResult(result);
                     Stats.save(result);
@@ -432,11 +461,14 @@
                     if (isMatch) {
                         SoundManager.play('match');
                         
-                        const x = window.innerWidth / 2;
-                        const y = window.innerHeight / 2;
-                        setParticles(createParticles(x, y));
-                        clearTimeout(particleTimeout.current);
-                        particleTimeout.current = setTimeout(() => setParticles([]), 800);
+                        // 카드 플립 애니메이션(600ms) 완료 후에 파티클 효과 표시
+                        setTimeout(() => {
+                            const x = window.innerWidth / 2;
+                            const y = window.innerHeight / 2;
+                            setParticles(createParticles(x, y));
+                            clearTimeout(particleTimeout.current);
+                            particleTimeout.current = setTimeout(() => setParticles([]), 800);
+                        }, 600);
 
                         if (playerMode === 'dual') {
                             const playerKey = currentPlayer === 1 ? 'player1' : 'player2';
@@ -492,9 +524,10 @@
                                         <div className={`${t.panel} rounded-2xl p-6 space-y-2`}>
                                             {topRecords.slice(0, 5).map((rec, idx) => (
                                                 <div key={idx} className={`flex justify-between items-center py-2 px-4 rounded-lg ${t.statBox}`}>
-                                                    <span className="font-bold">#{idx + 1}</span>
-                                                    <span className="text-sm">{rec.playerMode === 'single' ? '개인' : '대결'} ({rec.difficulty*2}장)</span>
-                                                    <span className="text-yellow-500 font-bold">{rec.time}초</span>
+                                                    <span className="font-bold text-yellow-400">#{idx + 1}</span>
+                                                    <span className="text-sm text-white flex-1 px-2">{rec.nickname || '손님'}</span>
+                                                    <span className="text-xs text-gray-300">{rec.playerMode === 'single' ? '개인' : '대결'} ({rec.difficulty*2}장)</span>
+                                                    <span className="text-yellow-400 font-bold ml-2">{rec.time}초</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -609,8 +642,8 @@
                             <h1 className="text-4xl font-bold mb-8 text-center">⚙️ 게임 설정</h1>
                             
                             <div className="mb-6">
-                                <h2 className="text-lg font-bold mb-3">🎴 난이도</h2>
-                                <div className="grid grid-cols-3 gap-2">
+                                <h2 className="text-lg font-bold mb-3">🎴 난이도 & 모드</h2>
+                                <div className="grid grid-cols-3 gap-2 mb-3">
                                     {[8, 12, 16].map(diff => {
                                         const isEnabled = images.length >= (diff/2);
                                         const isActive = difficulty === diff/2;
@@ -628,6 +661,16 @@
                                         );
                                     })}
                                 </div>
+                                <label className="flex items-center gap-2 cursor-pointer p-2 bg-white/5 rounded-lg">
+                                    <input 
+                                        type="checkbox" 
+                                        checked={useTextMatching} 
+                                        onChange={(e) => setUseTextMatching(e.target.checked)} 
+                                        className="w-4 h-4 rounded"
+                                        aria-label="텍스트-이미지 매칭 모드"
+                                    />
+                                    <span className="font-bold text-sm">📝 텍스트-이미지 매칭</span>
+                                </label>
                             </div>
 
                             <div className="mb-6">
@@ -690,8 +733,8 @@
 
                             <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-400/20">
                                 <h3 className="text-sm font-bold mb-2">⚙️ 환경 설정</h3>
-                                <div className="space-y-2">
-                                    <label className="flex items-center gap-3 cursor-pointer">
+                                <div className="flex items-center gap-6">
+                                    <label className="flex items-center gap-2 cursor-pointer">
                                         <input 
                                             type="checkbox" 
                                             checked={theme === 'light'} 
@@ -702,7 +745,7 @@
                                         <span className="font-bold text-sm">☀️ 라이트 모드</span>
                                     </label>
                                     
-                                    <label className="flex items-center gap-3 cursor-pointer">
+                                    <label className="flex items-center gap-2 cursor-pointer">
                                         <input 
                                             type="checkbox" 
                                             checked={soundEnabled} 
@@ -727,6 +770,34 @@
                                     aria-label="게임 시작"
                                 >🚀 게임 시작!</button>
                             </div>
+
+                            {showNicknameModal && (
+                                <div className="fixed inset-0 bg-slate-900/80 backdrop-blur-md flex flex-col items-center justify-center z-50">
+                                    <div className="bg-white/10 p-8 rounded-3xl text-center border border-white/20 shadow-2xl max-w-md w-full">
+                                        <h2 className="text-3xl font-bold text-white mb-6">👤 닉네임</h2>
+                                        <input 
+                                            type="text" 
+                                            value={playerNickname} 
+                                            onChange={(e) => setPlayerNickname(e.target.value)}
+                                            placeholder="닉네임을 입력하세요"
+                                            onKeyPress={(e) => e.key === 'Enter' && startGameWithNickname()}
+                                            className={`w-full px-4 py-3 rounded-lg mb-6 text-center text-lg font-bold ${t.input}`}
+                                            autoFocus
+                                            aria-label="닉네임 입력"
+                                        />
+                                        <div className="flex gap-3">
+                                            <button 
+                                                onClick={() => setShowNicknameModal(false)} 
+                                                className={`flex-1 py-3 font-bold rounded-lg ${t.secondaryBtn}`}
+                                            >취소</button>
+                                            <button 
+                                                onClick={startGameWithNickname} 
+                                                className={`flex-1 py-3 font-bold rounded-lg ${t.primaryBtn}`}
+                                            >시작!</button>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </div>
                     </div>
                 );
@@ -972,13 +1043,14 @@
 
                             {singleStats.length > 0 && (
                                 <div className="mb-10 text-left bg-black/10 p-6 rounded-2xl">
-                                    <h2 className="text-2xl font-bold mb-4">🏆 명예의 전당 (TOP 5)</h2>
+                                    <h2 className="text-2xl font-bold mb-4 text-yellow-500">🏆 명예의 전당 (TOP 5)</h2>
                                     <div className="space-y-3">
                                         {singleStats.sort((a, b) => a.time - b.time).slice(0, 5).map((stat, idx) => (
                                             <div key={idx} className={`flex justify-between items-center ${t.statBox} p-4 rounded-xl`}>
-                                                <span className="font-bold text-lg w-8">{idx + 1}</span>
-                                                <span className="opacity-80 flex-1">{stat.difficulty * 2}장</span>
-                                                <span className="text-yellow-500 font-bold text-xl">{stat.time}초</span>
+                                                <span className="font-bold text-lg text-yellow-400 w-12">#{idx + 1}</span>
+                                                <span className="text-white flex-1">{stat.nickname || '손님'}</span>
+                                                <span className="opacity-80 text-sm text-gray-300">{stat.difficulty * 2}장</span>
+                                                <span className="text-yellow-400 font-bold text-lg ml-4">{stat.time}초</span>
                                             </div>
                                         ))}
                                     </div>
