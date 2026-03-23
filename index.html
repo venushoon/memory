@@ -285,12 +285,12 @@
 
             // ====== 게임 시작 ======
             const startGame = () => {
-                if (images.length < Math.ceil(difficulty / 2)) {
-                    alert(`최소 ${Math.ceil(difficulty / 2)}개 이상의 이미지가 필요합니다!`);
+                if (images.length < difficulty) {
+                    alert(`최소 ${difficulty}개 이상의 이미지가 필요합니다!`);
                     return;
                 }
 
-                const selectedImages = images.slice(0, Math.ceil(difficulty / 2));
+                const selectedImages = images.slice(0, difficulty);
                 let deck = [];
                 
                 if (useTextMatching) {
@@ -324,8 +324,6 @@
                 setIsPaused(false);
                 warningPlayed.current = false;
                 setScreen('playing');
-                
-                speak("게임을 시작합니다. 화이팅!");
             };
 
             // ====== 타이머 ======
@@ -341,12 +339,10 @@
                                 if (newTime === 30 && !warningPlayed.current) {
                                     warningPlayed.current = true;
                                     SoundManager.play('warning');
-                                    speak("30초 남았습니다.");
                                 }
                                 if (newTime <= 0) {
                                     setGameFinished(true);
                                     setIsActive(false);
-                                    speak("시간이 종료되었습니다.");
                                     return 0;
                                 }
                                 return newTime;
@@ -363,7 +359,6 @@
                     setGameFinished(true);
                     setIsActive(false);
                     SoundManager.play('win');
-                    speak("축하합니다! 모두 맞췄어요!");
                     
                     const result = { 
                         time: timer, 
@@ -418,8 +413,6 @@
                     
                     if (isMatch) {
                         SoundManager.play('match');
-                        const labelText = cards[first].label;
-                        speak(labelText ? `${labelText}. 정답!` : "정답!");
                         
                         const x = window.innerWidth / 2;
                         const y = window.innerHeight / 2;
@@ -436,7 +429,6 @@
                         setFlipped([]);
                     } else {
                         SoundManager.play('nomatch');
-                        speak("아쉽네요. 다시 시도해보세요.");
                         
                         setTimeout(() => {
                             setFlipped([]);
@@ -670,6 +662,33 @@
                                 </div>
                             </div>
 
+                            <div className="mb-10">
+                                <h2 className="text-2xl font-bold mb-4">⚙️ 게임 환경 설정</h2>
+                                <div className="space-y-4 p-5 bg-purple-500/10 rounded-2xl border border-purple-400/20">
+                                    <label className="flex items-center gap-4 cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={theme === 'light'} 
+                                            onChange={(e) => setTheme(e.target.checked ? 'light' : 'dark')} 
+                                            className="w-6 h-6 rounded"
+                                            aria-label="라이트 모드"
+                                        />
+                                        <span className="font-bold text-lg">☀️ 라이트 모드</span>
+                                    </label>
+                                    
+                                    <label className="flex items-center gap-4 cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={soundEnabled} 
+                                            onChange={(e) => setSoundEnabled(e.target.checked)} 
+                                            className="w-6 h-6 rounded"
+                                            aria-label="효과음 설정"
+                                        />
+                                        <span className="font-bold text-lg">🔊 효과음</span>
+                                    </label>
+                                </div>
+                            </div>
+
                             <div className="flex gap-4">
                                 <button 
                                     onClick={() => setScreen('setup')} 
@@ -693,27 +712,7 @@
                     <div className={`flex h-screen flex-col md:flex-row p-4 gap-4 ${t.bg} ${t.text}`}>
                         {/* 좌측 패널 */}
                         <div className={`w-full md:w-72 ${t.panel} rounded-3xl p-6 flex flex-col shadow-2xl overflow-y-auto scroll-area`}>
-                            <div className="flex justify-between items-center mb-6">
-                                <h2 className="text-2xl font-bold">📊 정보</h2>
-                                <div className="flex gap-2">
-                                    <button 
-                                        onClick={() => setSoundEnabled(!soundEnabled)} 
-                                        className={`p-2 rounded-full ${t.statBox} transition-all text-xl`}
-                                        title="음성 ON/OFF"
-                                        aria-label={soundEnabled ? '음성 끄기' : '음성 켜기'}
-                                    >
-                                        {soundEnabled ? '🔊' : '🔇'}
-                                    </button>
-                                    <button 
-                                        onClick={() => setTheme(theme === 'dark' ? 'light' : 'dark')} 
-                                        className={`p-2 rounded-full ${t.statBox} transition-all text-xl`}
-                                        title="테마 변경"
-                                        aria-label="테마 변경"
-                                    >
-                                        {theme === 'dark' ? '☀️' : '🌙'}
-                                    </button>
-                                </div>
-                            </div>
+                            <h2 className="text-2xl font-bold mb-6">📊 게임 정보</h2>
                             
                             <button 
                                 onClick={() => setIsPaused(!isPaused)} 
@@ -782,7 +781,13 @@
                         </div>
 
                         {/* 우측 게임판 */}
-                        <div className={`flex-1 ${t.cardBoard} rounded-3xl p-4 md:p-6 relative flex flex-wrap justify-center content-center gap-2 md:gap-4 overflow-hidden`}>
+                        <div className={`flex-1 ${t.cardBoard} rounded-3xl p-4 md:p-6 relative overflow-hidden`} style={{
+                            display: 'grid',
+                            gridTemplateColumns: `repeat(auto-fit, minmax(${window.innerWidth < 480 ? '80px' : window.innerWidth < 768 ? '100px' : '120px'}, 1fr))`,
+                            gap: '12px',
+                            alignContent: 'center',
+                            justifyContent: 'center'
+                        }}>
                             {cards.map((card, index) => {
                                 const isFlipped = flipped.includes(index) || solved.includes(index);
                                 const isMatched = solved.includes(index);
@@ -793,7 +798,7 @@
                                         key={index} 
                                         onClick={() => handleCardClick(index)} 
                                         className={`card-flip rounded-xl cursor-pointer transform transition-transform duration-200 hover:scale-[1.03] ${isMatched ? 'card-matched opacity-50 grayscale-[0.3]' : ''} ${isHinted ? 'hint-card' : ''}`} 
-                                        style={{ width: getCardWidth(), aspectRatio: '3/4' }}
+                                        style={{ width: '100%', aspectRatio: '3/4' }}
                                         role="button"
                                         tabIndex={0}
                                         aria-label={`카드 ${index + 1}`}
