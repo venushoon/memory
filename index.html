@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>전자칠판용 같은 그림 맞추기 Pro</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Gaegu:wght@400;700&family=Fredoka:wght@600;700&display=swap');
+        
+        * { box-sizing: border-box; }
+        body { 
+            font-family: 'Gaegu', cursive; 
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+            overflow: hidden;
+        }
+        
+        /* 카드 3D 애니메이션 */
+        .card-flip { perspective: 1000px; }
+        .card-inner {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            transition: transform 0.6s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            transform-style: preserve-3d;
+        }
+        .card-inner.flipped { transform: rotateY(180deg); }
+        .card-front, .card-back {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            backface-visibility: hidden;
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .card-back { transform: rotateY(180deg); }
+
+        /* 매칭 성공 파티클 효과 */
+        @keyframes particle-burst {
+            0% { transform: translate(0, 0) scale(1); opacity: 1; }
+            100% { transform: translate(var(--tx), var(--ty)) scale(0); opacity: 0; }
+        }
+        .particle {
+            position: fixed;
+            pointer-events: none;
+            font-size: 2rem;
+            animation: particle-burst 0.8s ease-out forwards;
+        }
+
+        /* 카드 펄스 효과 */
+        @keyframes pulse-match {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.08); }
+        }
+        .card-matched {
+            animation: pulse-match 0.6s ease-in-out;
+        }
+
+        /* 성공 확대 애니메이션 */
+        @keyframes bounce-in {
+            0% { transform: scale(0) rotate(-180deg); opacity: 0; }
+            100% { transform: scale(1) rotate(0); opacity: 1; }
+        }
+        .bounce-animation {
+            animation: bounce-in 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+        }
+
+        /* 타이머 펄스 */
+        @keyframes timer-pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+        }
+        .timer-active { animation: timer-pulse 1s infinite; }
+
+        /* 플레이어 턴 표시 */
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 10px rgba(34, 197, 94, 0.3); }
+            50% { box-shadow: 0 0 20px rgba(34, 197, 94, 0.7); }
+        }
+        .player-active { animation: glow 1.5s infinite; }
+
+        /* 리본 효과 (승리 화면) */
+        @keyframes ribbon-wave {
+            0%, 100% { transform: translateY(-10px); }
+            50% { transform: translateY(10px); }
+        }
+        .ribbon { animation: ribbon-wave 2s ease-in-out infinite; }
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useCallback, useRef } = React;
+
+        // 사운드 유틸리티 (Web Audio API)
+        const SoundManager = {
+            play: (type) => {
+                const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                const oscillator = audioContext.createOscillator();
+                const gain = audioContext.createGain();
+                
+                oscillator.connect(gain);
+                gain.connect(audioContext.destination);
+                
+                const configs = {
+                    flip: { freq: 800, duration: 0.1 },
+                    match: { freq: 1200, duration: 0.3 },
+                    nomatch: { freq: 400, duration: 0.2 },
+                    win: { freq: 1000, duration: 0.5 }
+                };
+                
+                const config = configs[type] || configs.flip;
+                oscillator.frequency.value = config.freq;
+                
+                gain.gain.setValueAtTime(0.3, audioContext.currentTime);
+                gain.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + config.duration);
+                
+                oscillator.start(audioContext.currentTime);
+                oscillator.stop(audioContext.currentTime + config.duration);
+            }
+        };
+
+        // 파티클 생성 함수
+        const createParticles = (x, y, count = 8) => {
+            const particles = [];
+            const emojis = ['✨', '⭐', '🌟', '💫'];
+            for (let i = 0; i < count; i++) {
+                const angle = (i / count) * Math.PI * 2;
+                const distance = 50 + Math.random() * 100;
+                particles.push({
+                    id: Math.random(),
+                    x: x - 15,
+                    y: y - 15,
+                    tx: Math.cos(angle) * distance,
+                    ty: Math.sin(angle) * distance,
+                    emoji: emojis[Math.floor(Math.random() * emojis.length)]
+                });
+            }
+            return particles;
+        };
+
+        const MemoryGame = () => {
+            // 게임 상태
+            const [gameMode, setGameMode] = useState('setup'); // setup, difficulty, playing, finished
+            const [difficulty, setDifficulty] = useState(4); // 2,4,6,8 쌍의 개수
+            const [playerMode, setPlayerMode] = useState('single'); // single, dual
+            const [images, setImages] = useState([]);
+            const [cards, setCards] = useState([]);
+            const [flipped, setFlipped] = useState([]);
+            const [solved, setSolved] = useState([]);
+            
+            // 게임 로직
+            const [timer, setTimer] = useState(0);
+            const [isActive, setIsActive] = useState(false);
+            const [gameFinished, setGameFinished] = useState(false);
+            
+            // 다인용 모드
+            const [currentPlayer, setCurrentPlayer] = useState(1);
+            const [scores, setScores] = useState({ player1: 0, player2: 0 });
+            const [playerNames, setPlayerNames] = useState({ player1: '학생 1', player2: '학생 2' });
+            
+            // 파티클 효과
+            const [particles, setParticles] = useState([]);
+            const particleTimeout = useRef(null);
+
+            // 이미지 업로드
+            const handleImageUpload = (e) => {
+                const files = Array.from(e.target.files);
+                const newImages = files.map(file => URL.createObjectURL(file));
+                setImages(prev => [...prev, ...newImages].slice(0, 16)); // 최대 16개
+            };
+
+            // 이미지 삭제 (개선: 이미지 관리 기능)
+            const removeImage = (index) => {
+                setImages(prev => prev.filter((_, i) => i !== index));
+            };
+
+            // 게임 시작
+            const startGame = () => {
+                if (images.length < difficulty) {
+                    alert(`최소 ${difficulty}개 이상의 이미지를 업로드해주세요!`);
+                    return;
+                }
+
+                const selectedImages = images.slice(0, difficulty);
+                const deck = [...selectedImages, ...selectedImages]
+                    .sort(() => Math.random() - 0.5)
+                    .map((url, index) => ({ id: index, url }));
+                
+                setCards(deck);
+                setSolved([]);
+                setFlipped([]);
+                setTimer(0);
+                setCurrentPlayer(1);
+                setScores({ player1: 0, player2: 0 });
+                setIsActive(true);
+                setGameFinished(false);
+                setGameMode('playing');
+            };
+
+            // 타이머
+            useEffect(() => {
+                let interval = null;
+                if (isActive && !gameFinished) {
+                    interval = setInterval(() => setTimer(t => t + 1), 1000);
+                }
+                return () => clearInterval(interval);
+            }, [isActive, gameFinished]);
+
+            // 게임 완료 감지
+            useEffect(() => {
+                if (solved.length > 0 && solved.length === cards.length && cards.length > 0) {
+                    setGameFinished(true);
+                    setIsActive(false);
+                    SoundManager.play('win');
+                    if (playerMode === 'dual') {
+                        if (scores.player1 > scores.player2) {
+                            setScores(prev => ({ ...prev, player1: prev.player1 + 1 }));
+                        } else if (scores.player2 > scores.player1) {
+                            setScores(prev => ({ ...prev, player2: prev.player2 + 1 }));
+                        }
+                    }
+                }
+            }, [solved, cards.length, playerMode, scores]);
+
+            // 카드 클릭
+            const handleCardClick = (id) => {
+                if (flipped.length === 2 || solved.includes(id) || flipped.includes(id)) return;
+
+                SoundManager.play('flip');
+                const newFlipped = [...flipped, id];
+                setFlipped(newFlipped);
+
+                if (newFlipped.length === 2) {
+                    const [first, second] = newFlipped;
+                    
+                    if (cards[first].url === cards[second].url) {
+                        SoundManager.play('match');
+                        
+                        // 파티클 효과
+                        const x = Math.random() * window.innerWidth;
+                        const y = Math.random() * window.innerHeight;
+                        const newParticles = createParticles(x, y);
+                        setParticles(newParticles);
+                        
+                        clearTimeout(particleTimeout.current);
+                        particleTimeout.current = setTimeout(() => setParticles([]), 800);
+
+                        // 스코어 업데이트 (다인용 모드)
+                        if (playerMode === 'dual') {
+                            if (currentPlayer === 1) {
+                                setScores(prev => ({ ...prev, player1: prev.player1 + 1 }));
+                            } else {
+                                setScores(prev => ({ ...prev, player2: prev.player2 + 1 }));
+                            }
+                        }
+
+                        setSolved([...solved, first, second]);
+                        setFlipped([]);
+                    } else {
+                        SoundManager.play('nomatch');
+                        
+                        // 다인용 모드에서 플레이어 전환
+                        if (playerMode === 'dual') {
+                            setTimeout(() => {
+                                setFlipped([]);
+                                setCurrentPlayer(currentPlayer === 1 ? 2 : 1);
+                            }, 1000);
+                        } else {
+                            setTimeout(() => setFlipped([]), 1000);
+                        }
+                    }
+                }
+            };
+
+            // UI: 게임 설정 화면
+            if (gameMode === 'setup') {
+                return (
+                    <div className="flex h-screen items-center justify-center p-4">
+                        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-12 text-white text-center max-w-2xl shadow-2xl border-2 border-yellow-400">
+                            <h1 className="text-6xl font-bold mb-4 text-yellow-400">🎮 메모리 챌린지</h1>
+                            <p className="text-xl text-gray-300 mb-8">전자칠판으로 즐기는 인터랙티브 게임</p>
+                            
+                            <div className="space-y-4 mb-12">
+                                <h2 className="text-3xl font-bold">이미지 준비하기</h2>
+                                <input 
+                                    type="file" 
+                                    multiple 
+                                    accept="image/*"
+                                    onChange={handleImageUpload}
+                                    className="block w-full text-sm text-gray-400 mb-4 file:mr-4 file:py-3 file:px-6 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-green-500 file:text-white hover:file:bg-green-600 cursor-pointer"
+                                />
+                                
+                                {images.length > 0 && (
+                                    <div>
+                                        <p className="text-sm text-gray-400 mb-3">업로드된 이미지: {images.length}개</p>
+                                        <div className="grid grid-cols-4 md:grid-cols-6 gap-2 max-h-64 overflow-y-auto">
+                                            {images.map((img, i) => (
+                                                <div key={i} className="relative group">
+                                                    <img src={img} className="w-full h-20 object-cover rounded-lg border-2 border-white" />
+                                                    <button
+                                                        onClick={() => removeImage(i)}
+                                                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-6 h-6 opacity-0 group-hover:opacity-100 transition-opacity text-sm font-bold"
+                                                    >
+                                                        ✕
+                                                    </button>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="space-y-4">
+                                <button 
+                                    onClick={() => setGameMode('difficulty')}
+                                    disabled={images.length < 2}
+                                    className="w-full py-4 bg-yellow-500 hover:bg-yellow-400 disabled:bg-gray-500 text-slate-900 text-xl font-bold rounded-2xl transition-all shadow-lg transform hover:scale-105"
+                                >
+                                    다음 단계 →
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // UI: 난이도 선택 화면
+            if (gameMode === 'difficulty') {
+                return (
+                    <div className="flex h-screen items-center justify-center p-4">
+                        <div className="bg-gradient-to-br from-slate-800 to-slate-900 rounded-3xl p-12 text-white text-center max-w-2xl shadow-2xl border-2 border-yellow-400">
+                            <h1 className="text-5xl font-bold mb-2 text-yellow-400">⚙️ 게임 설정</h1>
+                            
+                            <div className="my-12">
+                                <h2 className="text-3xl font-bold mb-8">난이도 선택</h2>
+                                <div className="grid grid-cols-2 gap-4 mb-12">
+                                    {[2, 4, 6, 8].map(diff => (
+                                        <button
+                                            key={diff}
+                                            onClick={() => setDifficulty(diff)}
+                                            className={`py-6 rounded-2xl text-2xl font-bold transition-all transform hover:scale-105 ${
+                                                difficulty === diff
+                                                    ? 'bg-yellow-400 text-slate-900 shadow-lg'
+                                                    : 'bg-slate-700 text-white hover:bg-slate-600'
+                                            }`}
+                                        >
+                                            {diff * 2}장 <div className="text-sm opacity-75">({diff}쌍)</div>
+                                        </button>
+                                    ))}
+                                </div>
+
+                                <h2 className="text-3xl font-bold mb-8">게임 모드</h2>
+                                <div className="grid grid-cols-2 gap-4">
+                                    {[
+                                        { id: 'single', name: '🎯 한 명 플레이', desc: '기록 도전' },
+                                        { id: 'dual', name: '👥 대결 모드', desc: '2명 경쟁' }
+                                    ].map(mode => (
+                                        <button
+                                            key={mode.id}
+                                            onClick={() => setPlayerMode(mode.id)}
+                                            className={`py-6 rounded-2xl font-bold transition-all transform hover:scale-105 ${
+                                                playerMode === mode.id
+                                                    ? 'bg-green-500 text-white shadow-lg'
+                                                    : 'bg-slate-700 text-white hover:bg-slate-600'
+                                            }`}
+                                        >
+                                            <div className="text-xl">{mode.name}</div>
+                                            <div className="text-sm opacity-75">{mode.desc}</div>
+                                        </button>
+                                    ))}
+                                </div>
+                            </div>
+
+                            <div className="flex gap-4">
+                                <button 
+                                    onClick={() => setGameMode('setup')}
+                                    className="flex-1 py-4 bg-slate-700 hover:bg-slate-600 text-white text-lg font-bold rounded-2xl transition-all"
+                                >
+                                    ← 돌아가기
+                                </button>
+                                <button 
+                                    onClick={startGame}
+                                    className="flex-1 py-4 bg-yellow-500 hover:bg-yellow-400 text-slate-900 text-lg font-bold rounded-2xl transition-all shadow-lg transform hover:scale-105"
+                                >
+                                    게임 시작! 🚀
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+
+            // UI: 게임 진행 화면
+            if (gameMode === 'playing') {
+                return (
+                    <div className="flex h-screen flex-col md:flex-row text-white p-4 gap-4 overflow-hidden">
+                        {/* 좌측 패널 */}
+                        <div className="w-full md:w-1/5 bg-gradient-to-b from-slate-800 to-slate-900 rounded-2xl p-6 border-2 border-yellow-400 flex flex-col">
+                            <h2 className="text-2xl font-bold mb-4 text-yellow-400">📊 게임 정보</h2>
+                            
+                            {/* 타이머 */}
+                            <div className={`text-center bg-slate-700 p-4 rounded-xl mb-6 ${isActive && !gameFinished ? 'timer-active' : ''}`}>
+                                <p className="text-gray-400 text-sm">⏱️ 경과 시간</p>
+                                <p className="text-4xl font-mono text-yellow-400 font-bold">{timer}초</p>
+                            </div>
+
+                            {/* 진행도 */}
+                            <div className="mb-6">
+                                <p className="text-sm text-gray-400 mb-2">진행도</p>
+                                <div className="bg-slate-700 rounded-full h-3 overflow-hidden">
+                                    <div 
+                                        className="bg-gradient-to-r from-green-400 to-blue-500 h-full transition-all duration-300"
+                                        style={{width: `${cards.length > 0 ? (solved.length / cards.length) * 100 : 0}%`}}
+                                    />
+                                </div>
+                                <p className="text-xs text-gray-400 mt-2 text-center">{solved.length} / {cards.length}</p>
+                            </div>
+
+                            {/* 다인용 모드: 스코어 */}
+                            {playerMode === 'dual' && (
+                                <div className="space-y-3">
+                                    {[1, 2].map(player => (
+                                        <div 
+                                            key={player} 
+                                            className={`p-4 rounded-xl border-2 transition-all ${
+                                                currentPlayer === player
+                                                    ? 'bg-green-600/30 border-green-400 player-active'
+                                                    : 'bg-slate-700 border-slate-600'
+                                            }`}
+                                        >
+                                            <p className="text-sm opacity-75">{playerNames[`player${player}`]}</p>
+                                            <p className="text-2xl font-bold text-yellow-400">{scores[`player${player}`]}점</p>
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+
+                            <button 
+                                onClick={() => setGameMode('difficulty')}
+                                className="mt-auto py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-all"
+                            >
+                                🔄 다시 설정
+                            </button>
+                        </div>
+
+                        {/* 우측 게임판 */}
+                        <div className="flex-1 bg-gradient-to-br from-slate-900 to-slate-800 rounded-2xl p-6 border-2 border-yellow-400 relative flex flex-wrap justify-center content-center gap-3 overflow-hidden">
+                            {cards.map((card, index) => {
+                                const isFlipped = flipped.includes(index) || solved.includes(index);
+                                const isMatched = solved.includes(index);
+                                
+                                return (
+                                    <div 
+                                        key={index}
+                                        onClick={() => handleCardClick(index)}
+                                        className={`card-flip rounded-lg cursor-pointer transform transition-transform duration-200 hover:scale-105 ${
+                                            isMatched ? 'card-matched opacity-75' : ''
+                                        }`}
+                                        style={{
+                                            width: difficulty <= 2 ? '30%' : difficulty <= 4 ? '22%' : '18%',
+                                            aspectRatio: '2/3'
+                                        }}
+                                    >
+                                        <div className={`card-inner ${isFlipped ? 'flipped' : ''}`}>
+                                            <div className="card-front bg-gradient-to-br from-blue-600 to-blue-800 border-4 border-white shadow-xl">
+                                                <span className="text-5xl">?</span>
+                                            </div>
+                                            <div className="card-back bg-white border-4 border-yellow-400 shadow-xl overflow-hidden">
+                                                <img src={card.url} className="w-full h-full object-cover" />
+                                            </div>
+                                        </div>
+                                    </div>
+                                );
+                            })}
+
+                            {/* 파티클 효과 */}
+                            {particles.map(particle => (
+                                <div
+                                    key={particle.id}
+                                    className="particle"
+                                    style={{
+                                        left: particle.x,
+                                        top: particle.y,
+                                        '--tx': `${particle.tx}px`,
+                                        '--ty': `${particle.ty}px`,
+                                    }}
+                                >
+                                    {particle.emoji}
+                                </div>
+                            ))}
+                        </div>
+                    </div>
+                );
+            }
+
+            // UI: 게임 완료 화면
+            if (gameMode === 'playing' && gameFinished) {
+                const winner = playerMode === 'dual' 
+                    ? scores.player1 > scores.player2 ? '학생 1' 
+                    : scores.player1 < scores.player2 ? '학생 2' 
+                    : '동점'
+                    : null;
+
+                return (
+                    <div className="flex h-screen items-center justify-center p-4">
+                        <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
+                            <div className="bg-gradient-to-br from-yellow-400 to-yellow-500 rounded-3xl p-12 text-center max-w-md shadow-2xl border-4 border-yellow-300 transform">
+                                <h1 className="text-6xl mb-4 bounce-animation">🎉</h1>
+                                <h1 className="text-5xl font-bold text-slate-900 mb-4">축하합니다!</h1>
+                                
+                                {playerMode === 'dual' ? (
+                                    <div className="my-8 space-y-3">
+                                        <p className="text-2xl font-bold text-slate-800">{winner} 승리! 🏆</p>
+                                        <div className="grid grid-cols-2 gap-4">
+                                            <div className="bg-white rounded-xl p-4">
+                                                <p className="text-sm text-slate-600">학생 1</p>
+                                                <p className="text-3xl font-bold text-blue-600">{scores.player1}</p>
+                                            </div>
+                                            <div className="bg-white rounded-xl p-4">
+                                                <p className="text-sm text-slate-600">학생 2</p>
+                                                <p className="text-3xl font-bold text-red-600">{scores.player2}</p>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : (
+                                    <div className="my-8">
+                                        <p className="text-4xl font-bold text-slate-900 mb-2">{timer}초</p>
+                                        <p className="text-lg text-slate-700">새 기록을 세웠어요! 🌟</p>
+                                    </div>
+                                )}
+
+                                <div className="flex gap-4 mt-8">
+                                    <button 
+                                        onClick={startGame}
+                                        className="flex-1 py-4 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl font-bold transition-all"
+                                    >
+                                        다시 하기
+                                    </button>
+                                    <button 
+                                        onClick={() => setGameMode('difficulty')}
+                                        className="flex-1 py-4 bg-white hover:bg-gray-100 text-slate-900 rounded-2xl font-bold transition-all"
+                                    >
+                                        설정 변경
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                );
+            }
+        };
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<MemoryGame />);
+    </script>
+</body>
+</html>
