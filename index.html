@@ -221,6 +221,8 @@
             const [hintedCards, setHintedCards] = useState([]);
             const [gameResult, setGameResult] = useState(null);
             const [imageErrors, setImageErrors] = useState({});
+            const [countDown, setCountDown] = useState(null);
+            const [showLeaderboard, setShowLeaderboard] = useState(false);
             
             const particleTimeout = useRef(null);
             const isSpeaking = useRef(false);
@@ -319,14 +321,30 @@
                 setScores({ player1: 0, player2: 0 });
                 setHints(3);
                 setHintedCards([]);
-                setIsActive(true);
                 setGameFinished(false);
                 setIsPaused(false);
                 warningPlayed.current = false;
                 setScreen('playing');
+                
+                // 카운트다운 시작
+                setCountDown(3);
+                setIsActive(false);
             };
 
             // ====== 타이머 ======
+            useEffect(() => {
+                let interval = null;
+                if (countDown !== null && countDown > 0) {
+                    interval = setInterval(() => {
+                        setCountDown(prev => prev - 1);
+                    }, 1000);
+                } else if (countDown === 0) {
+                    setCountDown(null);
+                    setIsActive(true);
+                }
+                return () => clearInterval(interval);
+            }, [countDown]);
+
             useEffect(() => {
                 let interval = null;
                 if (isActive && !gameFinished && !isPaused) {
@@ -445,43 +463,51 @@
                 const topRecords = Stats.load().slice(-5).reverse();
                 return (
                     <div className={`flex h-screen items-center justify-center p-4 ${t.bg}`}>
-                        <div className="max-w-2xl w-full space-y-10 text-center">
+                        <div className="max-w-2xl w-full space-y-8 text-center">
                             <div>
-                                <h1 className={`text-7xl md:text-8xl font-bold ${t.heading} drop-shadow-xl mb-4`}>
+                                <h1 className={`text-6xl md:text-7xl font-bold ${t.heading} drop-shadow-xl mb-2`}>
                                     메모리 챌린지
                                 </h1>
-                                <p className={`text-2xl ${theme === 'dark' ? 'text-gray-300' : 'text-indigo-800'}`}>전자칠판 터치형 학습 게임</p>
+                                <p className={`text-lg ${theme === 'dark' ? 'text-gray-300' : 'text-indigo-800'}`}>터치형 학습 게임</p>
                             </div>
 
                             <button 
                                 onClick={() => setScreen('setup')} 
-                                className={`w-full py-6 text-3xl font-bold rounded-2xl transition-all transform hover:scale-[1.02] ${t.primaryBtn}`}
+                                className={`w-full py-5 text-2xl font-bold rounded-2xl transition-all transform hover:scale-[1.02] ${t.primaryBtn}`}
                                 aria-label="게임 시작 버튼"
                             >
                                 🚀 게임 시작하기
                             </button>
 
                             {topRecords.length > 0 && (
-                                <div className={`${t.panel} rounded-2xl p-8`}>
-                                    <h2 className="text-2xl font-bold text-yellow-500 mb-6">🏆 최근 명예의 전당</h2>
-                                    <div className="space-y-3">
-                                        {topRecords.slice(0, 5).map((rec, idx) => (
-                                            <div key={idx} className={`flex justify-between items-center py-3 px-4 rounded-xl ${t.statBox}`}>
-                                                <span className="font-bold">#{idx + 1}</span>
-                                                <span>{rec.playerMode === 'single' ? '개인전' : '대결전'} ({rec.difficulty*2}장)</span>
-                                                <span className="text-xl font-bold text-yellow-500">{rec.time}초</span>
-                                            </div>
-                                        ))}
-                                    </div>
+                                <div>
+                                    <button 
+                                        onClick={() => setShowLeaderboard(!showLeaderboard)}
+                                        className={`w-full py-3 rounded-xl font-bold transition-all ${t.secondaryBtn} mb-3 text-lg`}
+                                    >
+                                        🏆 최근 명예의 전당 {showLeaderboard ? '▼' : '▶'}
+                                    </button>
+                                    
+                                    {showLeaderboard && (
+                                        <div className={`${t.panel} rounded-2xl p-6 space-y-2`}>
+                                            {topRecords.slice(0, 5).map((rec, idx) => (
+                                                <div key={idx} className={`flex justify-between items-center py-2 px-4 rounded-lg ${t.statBox}`}>
+                                                    <span className="font-bold">#{idx + 1}</span>
+                                                    <span className="text-sm">{rec.playerMode === 'single' ? '개인' : '대결'} ({rec.difficulty*2}장)</span>
+                                                    <span className="text-yellow-500 font-bold">{rec.time}초</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    )}
                                 </div>
                             )}
 
                             <button 
                                 onClick={() => setScreen('stats')} 
-                                className={`w-full py-4 text-xl font-bold rounded-xl transition-all ${t.secondaryBtn}`}
+                                className={`w-full py-3 text-lg font-bold rounded-xl transition-all ${t.secondaryBtn}`}
                                 aria-label="전체 통계 보기"
                             >
-                                📊 전체 통계 보기
+                                📊 전체 통계
                             </button>
                         </div>
                     </div>
@@ -580,11 +606,11 @@
                 return (
                     <div className={`flex h-screen items-center justify-center p-4 ${t.bg}`}>
                         <div className={`${t.panel} ${t.text} rounded-3xl p-10 max-w-2xl w-full max-h-[90vh] overflow-y-auto scroll-area`}>
-                            <h1 className="text-5xl font-bold mb-10 text-center">⚙️ 게임 규칙 설정</h1>
+                            <h1 className="text-4xl font-bold mb-8 text-center">⚙️ 게임 설정</h1>
                             
-                            <div className="mb-10">
-                                <h2 className="text-2xl font-bold mb-4">🎴 난이도</h2>
-                                <div className="grid grid-cols-3 gap-4">
+                            <div className="mb-6">
+                                <h2 className="text-lg font-bold mb-3">🎴 난이도</h2>
+                                <div className="grid grid-cols-3 gap-2">
                                     {[8, 12, 16].map(diff => {
                                         const isEnabled = images.length >= (diff/2);
                                         const isActive = difficulty === diff/2;
@@ -593,67 +619,67 @@
                                                 key={diff} 
                                                 onClick={() => setDifficulty(diff/2)} 
                                                 disabled={!isEnabled} 
-                                                className={`py-6 rounded-2xl font-bold transition-all ${isActive ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-slate-900 shadow-lg scale-105' : isEnabled ? `${t.statBox} hover:bg-white/10` : 'bg-gray-400/20 opacity-40 cursor-not-allowed'}`}
+                                                className={`py-3 rounded-xl font-bold text-sm transition-all ${isActive ? 'bg-gradient-to-r from-yellow-400 to-yellow-500 text-slate-900 shadow-lg scale-105' : isEnabled ? `${t.statBox} hover:bg-white/10` : 'bg-gray-400/20 opacity-40 cursor-not-allowed'}`}
                                                 aria-label={`${diff}장 난이도`}
                                             >
-                                                <div className="text-3xl mb-1">{diff}장</div>
-                                                <div className="text-sm opacity-70">({diff/2}쌍)</div>
+                                                <div className="text-xl mb-0.5">{diff}장</div>
+                                                <div className="text-xs opacity-70">({diff/2}쌍)</div>
                                             </button>
                                         );
                                     })}
                                 </div>
                             </div>
 
-                            <div className="mb-10">
-                                <h2 className="text-2xl font-bold mb-4">👥 게임 모드</h2>
-                                <div className="grid grid-cols-2 gap-4">
+                            <div className="mb-6">
+                                <h2 className="text-lg font-bold mb-3">👥 게임 모드</h2>
+                                <div className="grid grid-cols-2 gap-2">
                                     {[
-                                        { id: 'single', n: '🎯 한 명 플레이', d: '기록 단축에 도전' },
-                                        { id: 'dual', n: '⚔️ 대결 모드', d: '2명이 번갈아 진행' }
+                                        { id: 'single', n: '🎯 한 명 플레이', d: '기록 단축' },
+                                        { id: 'dual', n: '⚔️ 대결 모드', d: '2명 경쟁' }
                                     ].map(m => (
                                         <button 
                                             key={m.id} 
                                             onClick={() => setPlayerMode(m.id)} 
-                                            className={`p-6 rounded-2xl font-bold transition-all ${playerMode === m.id ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white shadow-lg scale-105' : `${t.statBox} hover:bg-white/10`}`}
+                                            className={`p-3 rounded-xl font-bold text-sm transition-all ${playerMode === m.id ? 'bg-gradient-to-r from-green-400 to-emerald-500 text-white shadow-lg scale-105' : `${t.statBox} hover:bg-white/10`}`}
                                             aria-label={m.id === 'single' ? '한 명 플레이' : '대결 모드'}
                                         >
-                                            <div className="text-2xl mb-2">{m.n}</div>
-                                            <div className="text-sm opacity-70">{m.d}</div>
+                                            <div className="text-sm">{m.n}</div>
+                                            <div className="text-xs opacity-70">{m.d}</div>
                                         </button>
                                     ))}
                                 </div>
                             </div>
 
                             {playerMode === 'dual' && (
-                                <div className="mb-10 p-5 bg-purple-500/10 rounded-2xl border border-purple-400/20">
-                                    <h3 className="text-lg font-bold mb-4">학생 이름 설정</h3>
+                                <div className="mb-6 p-3 bg-purple-500/10 rounded-xl border border-purple-400/20">
+                                    <h3 className="text-sm font-bold mb-2">학생 이름</h3>
                                     <input 
                                         type="text" 
                                         value={playerNames.player1} 
                                         onChange={(e) => setPlayerNames(prev => ({...prev, player1: e.target.value}))}
-                                        placeholder="학생 1 이름"
-                                        className={`w-full px-4 py-2 rounded-lg mb-3 ${t.input}`}
+                                        placeholder="학생 1"
+                                        className={`w-full px-3 py-1.5 text-sm rounded-lg mb-2 ${t.input}`}
                                         aria-label="학생 1 이름"
                                     />
                                     <input 
                                         type="text" 
                                         value={playerNames.player2} 
                                         onChange={(e) => setPlayerNames(prev => ({...prev, player2: e.target.value}))}
-                                        placeholder="학생 2 이름"
-                                        className={`w-full px-4 py-2 rounded-lg ${t.input}`}
+                                        placeholder="학생 2"
+                                        className={`w-full px-3 py-1.5 text-sm rounded-lg ${t.input}`}
                                         aria-label="학생 2 이름"
                                     />
                                 </div>
                             )}
 
-                            <div className="mb-10">
-                                <h2 className="text-2xl font-bold mb-4">⏱️ 시간 제한 (선택)</h2>
-                                <div className="grid grid-cols-4 gap-3">
+                            <div className="mb-6">
+                                <h2 className="text-lg font-bold mb-3">⏱️ 시간 제한</h2>
+                                <div className="grid grid-cols-4 gap-2">
                                     {[{v:0, l:'제한없음'},{v:120, l:'2분'},{v:180, l:'3분'},{v:300, l:'5분'}].map(o => (
                                         <button 
                                             key={o.v} 
                                             onClick={() => setTimeLimit(o.v)} 
-                                            className={`py-4 rounded-xl font-bold transition-all ${timeLimit === o.v ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-md scale-105' : `${t.statBox} hover:bg-white/10`}`}
+                                            className={`py-2.5 rounded-lg font-bold text-xs transition-all ${timeLimit === o.v ? 'bg-gradient-to-r from-purple-500 to-indigo-500 text-white shadow-md scale-105' : `${t.statBox} hover:bg-white/10`}`}
                                             aria-label={`시간 제한 ${o.l}`}
                                         >
                                             {o.l}
@@ -662,29 +688,29 @@
                                 </div>
                             </div>
 
-                            <div className="mb-10">
-                                <h2 className="text-2xl font-bold mb-4">⚙️ 게임 환경 설정</h2>
-                                <div className="space-y-4 p-5 bg-purple-500/10 rounded-2xl border border-purple-400/20">
-                                    <label className="flex items-center gap-4 cursor-pointer">
+                            <div className="p-3 bg-purple-500/10 rounded-xl border border-purple-400/20">
+                                <h3 className="text-sm font-bold mb-2">⚙️ 환경 설정</h3>
+                                <div className="space-y-2">
+                                    <label className="flex items-center gap-3 cursor-pointer">
                                         <input 
                                             type="checkbox" 
                                             checked={theme === 'light'} 
                                             onChange={(e) => setTheme(e.target.checked ? 'light' : 'dark')} 
-                                            className="w-6 h-6 rounded"
+                                            className="w-4 h-4 rounded"
                                             aria-label="라이트 모드"
                                         />
-                                        <span className="font-bold text-lg">☀️ 라이트 모드</span>
+                                        <span className="font-bold text-sm">☀️ 라이트 모드</span>
                                     </label>
                                     
-                                    <label className="flex items-center gap-4 cursor-pointer">
+                                    <label className="flex items-center gap-3 cursor-pointer">
                                         <input 
                                             type="checkbox" 
                                             checked={soundEnabled} 
                                             onChange={(e) => setSoundEnabled(e.target.checked)} 
-                                            className="w-6 h-6 rounded"
+                                            className="w-4 h-4 rounded"
                                             aria-label="효과음 설정"
                                         />
-                                        <span className="font-bold text-lg">🔊 효과음</span>
+                                        <span className="font-bold text-sm">🔊 효과음</span>
                                     </label>
                                 </div>
                             </div>
@@ -783,7 +809,8 @@
                         {/* 우측 게임판 */}
                         <div className={`flex-1 ${t.cardBoard} rounded-3xl p-4 md:p-6 relative overflow-hidden`} style={{
                             display: 'grid',
-                            gridTemplateColumns: `repeat(auto-fit, minmax(${window.innerWidth < 480 ? '80px' : window.innerWidth < 768 ? '100px' : '120px'}, 1fr))`,
+                            gridTemplateColumns: 'repeat(4, 1fr)',
+                            gridTemplateRows: `repeat(${cards.length === 8 ? 2 : cards.length === 12 ? 3 : 4}, 1fr)`,
                             gap: '12px',
                             alignContent: 'center',
                             justifyContent: 'center'
@@ -835,6 +862,15 @@
                                         >
                                             계속하기 ▶️
                                         </button>
+                                    </div>
+                                </div>
+                            )}
+
+                            {countDown !== null && (
+                                <div className="absolute inset-0 bg-slate-900/80 backdrop-blur-md flex flex-col items-center justify-center z-50 rounded-3xl">
+                                    <div className="bg-white/10 p-10 rounded-3xl text-center border border-white/20 shadow-2xl">
+                                        <p className="text-sm text-gray-300 mb-6">준비하세요!</p>
+                                        <p className="text-9xl font-bold text-yellow-400 animate-bounce">{countDown > 0 ? countDown : '시작!'}</p>
                                     </div>
                                 </div>
                             )}
