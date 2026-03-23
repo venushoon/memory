@@ -359,6 +359,53 @@
                 setIsActive(false);
             };
 
+            // ====== 다시하기 (같은 설정으로 새 게임) ======
+            const playAgain = () => {
+                if (images.length < difficulty) {
+                    alert(`최소 ${difficulty}개 이상의 이미지가 필요합니다!`);
+                    return;
+                }
+
+                const selectedImages = images.slice(0, difficulty);
+                let deck = [];
+                
+                if (useTextMatching) {
+                    selectedImages.forEach((url) => {
+                        const label = imageLabels[url] || '그림';
+                        const pairId = `pair-${url}`;
+                        deck.push({ pairId, url, label, type: 'image' });
+                        deck.push({ pairId, url, label, type: 'text' });
+                    });
+                } else {
+                    deck = [...selectedImages, ...selectedImages].map((url) => ({
+                        id: selectedImages.indexOf(url),
+                        url,
+                        label: imageLabels[url] || ''
+                    }));
+                }
+                
+                deck = deck.sort(() => Math.random() - 0.5).map((card, idx) => ({ ...card, index: idx }));
+
+                setCards(deck);
+                setSolved([]);
+                setFlipped([]);
+                setTimer(0);
+                setTimeRemaining(timeLimit);
+                setCurrentPlayer(1);
+                setScores({ player1: 0, player2: 0 });
+                setHints(3);
+                setHintedCards([]);
+                setGameFinished(false);
+                setGameResult(null);
+                setIsPaused(false);
+                warningPlayed.current = false;
+                setScreen('playing');
+                
+                // 카운트다운 시작
+                setCountDown(3);
+                setIsActive(false);
+            };
+
             // ====== 타이머 ======
             useEffect(() => {
                 let interval = null;
@@ -401,23 +448,28 @@
 
             // ====== 게임 완료 감지 ======
             useEffect(() => {
-                if (solved.length > 0 && solved.length === cards.length && cards.length > 0) {
-                    setGameFinished(true);
-                    setIsActive(false);
+                if (solved.length > 0 && solved.length === cards.length && cards.length > 0 && !gameFinished) {
                     SoundManager.play('win');
                     
-                    const result = { 
-                        time: timer, 
-                        difficulty, 
-                        playerMode, 
-                        p1Score: scores.player1, 
-                        p2Score: scores.player2,
-                        nickname: playerNickname
-                    };
-                    setGameResult(result);
-                    Stats.save(result);
+                    // 마지막 카드 애니메이션(600ms) + 파티클 효과(800ms) 모두 끝난 후 결과 화면 표시
+                    const resultTimer = setTimeout(() => {
+                        const result = { 
+                            time: timer, 
+                            difficulty, 
+                            playerMode, 
+                            p1Score: scores.player1, 
+                            p2Score: scores.player2,
+                            nickname: playerNickname
+                        };
+                        setGameResult(result);
+                        Stats.save(result);
+                        setGameFinished(true);
+                        setIsActive(false);
+                    }, 1200);
+                    
+                    return () => clearTimeout(resultTimer);
                 }
-            }, [solved, cards.length, timer, difficulty, playerMode, scores]);
+            }, [solved, cards.length, timer, difficulty, playerMode, scores, playerNickname, gameFinished]);
 
             // ====== 힌트 사용 ======
             const useHint = () => {
@@ -979,7 +1031,7 @@
                                                 onClick={() => {
                                                     setGameFinished(false);
                                                     setGameResult(null);
-                                                    startGame();
+                                                    playAgain();
                                                 }} 
                                                 className="flex-1 py-4 bg-slate-900 hover:bg-slate-800 text-white text-xl font-bold rounded-2xl shadow-md transition-transform hover:scale-105"
                                                 aria-label="다시 하기"
